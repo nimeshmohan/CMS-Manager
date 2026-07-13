@@ -177,6 +177,34 @@ async function publishItem(
   return getItem(credentials, collectionId, itemId);
 }
 
+/**
+ * Moves a live item back to draft: PATCHes the staged item to `isDraft:
+ * true` (so it reads as a draft everywhere in this tool), then removes it
+ * from the live site via the `/live` endpoint — the counterpart to
+ * `publishItem`'s two-step push (Section 6).
+ */
+async function unpublishItem(
+  credentials: ProviderCredentials,
+  collectionId: string,
+  itemId: string,
+): Promise<ProviderItem> {
+  const current = await getItem(credentials, collectionId, itemId);
+  await webflowFetch<WebflowItem>(
+    credentials,
+    `/collections/${collectionId}/items/${itemId}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ isDraft: true, fieldData: current.fieldData }),
+    },
+  );
+  await webflowFetch<unknown>(
+    credentials,
+    `/collections/${collectionId}/items/${itemId}/live`,
+    { method: "DELETE" },
+  );
+  return getItem(credentials, collectionId, itemId);
+}
+
 async function createItem(
   credentials: ProviderCredentials,
   collectionId: string,
@@ -252,4 +280,5 @@ export const webflowProvider: CmsProvider = {
   updateItem,
   deleteItem,
   publishItem,
+  unpublishItem,
 };

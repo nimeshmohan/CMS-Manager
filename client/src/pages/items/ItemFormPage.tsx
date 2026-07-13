@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useProject } from "@/api/projects";
-import { useCreateItem, useItem, useUpdateItem } from "@/api/items";
+import { useCreateItem, useItem, useUnpublishItem, useUpdateItem } from "@/api/items";
 import { usePermissions } from "@/hooks/usePermissions";
 import { DynamicField } from "@/components/items/DynamicField";
 
@@ -43,6 +43,7 @@ export function ItemFormPage() {
   const itemQuery = useItem(projectId ?? "", collectionId ?? "", itemId);
   const createItem = useCreateItem(projectId ?? "", collectionId ?? "");
   const updateItem = useUpdateItem(projectId ?? "", collectionId ?? "", itemId ?? "");
+  const unpublishItem = useUnpublishItem(projectId ?? "", collectionId ?? "");
 
   const titleField = collection?.fields.find((f) => f.isTitleField);
 
@@ -104,6 +105,17 @@ export function ItemFormPage() {
   const handleSaveDraft = handleSubmit((values) => onSave(false, values));
   const handlePublish = handleSubmit((values) => onSave(true, values));
 
+  async function handleUnpublish(): Promise<void> {
+    if (!itemId) return;
+    try {
+      await unpublishItem.mutateAsync(itemId);
+      toast.success("Item moved back to draft.");
+      navigate(`/projects/${projectId}/collections/${collectionId}`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not unpublish item.");
+    }
+  }
+
   if (!project || !collection) {
     return (
       <div className="flex-1 p-6">
@@ -130,7 +142,8 @@ export function ItemFormPage() {
     );
   }
 
-  const isSaving = isSubmitting || createItem.isPending || updateItem.isPending;
+  const isSaving =
+    isSubmitting || createItem.isPending || updateItem.isPending || unpublishItem.isPending;
 
   return (
     <div className="flex-1 space-y-6 p-6">
@@ -179,15 +192,6 @@ export function ItemFormPage() {
               />
             ))}
 
-            {permissions.canPublish && (
-              <p className="text-xs text-muted-foreground">
-                Publishing pushes this item live immediately. There's no way to
-                unpublish from here afterward — marking it a draft again won't
-                remove it from the live site; that has to be done directly in{" "}
-                {project.cmsProvider === "webflow" ? "Webflow" : "the CMS"}.
-              </p>
-            )}
-
             <div className="flex flex-wrap items-center justify-end gap-2 border-t pt-5">
               <Button
                 type="button"
@@ -196,6 +200,17 @@ export function ItemFormPage() {
               >
                 Cancel
               </Button>
+              {isEditMode && itemQuery.data?.published && permissions.canPublish && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={isSaving}
+                  onClick={() => void handleUnpublish()}
+                >
+                  {isSaving && <Loader2 className="animate-spin" />}
+                  Unpublish
+                </Button>
+              )}
               <Button
                 type="button"
                 variant="outline"

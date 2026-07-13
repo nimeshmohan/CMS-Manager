@@ -37,6 +37,8 @@ export { stripHtml, slugify } from "./utils";
 
 export { buildItemSchema, buildItemFormSchema } from "./utils/buildItemSchema";
 
+export { autoMapFields, suggestFieldKey, suggestFieldType } from "./utils/autoMapFields";
+
 export type {
   ProviderSite,
   ProviderCollection,

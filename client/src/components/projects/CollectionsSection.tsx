@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
-import { List, Plus, Settings2, Trash2 } from "lucide-react";
+import { List, Plus, Trash2 } from "lucide-react";
 import type { CollectionConfig, Project } from "@cms-manager/shared";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,12 +23,10 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useRemoveCollection } from "@/api/collections";
 import { AddCollectionsDialog } from "./AddCollectionsDialog";
-import { FieldMappingDialog } from "./FieldMappingDialog";
 
 export function CollectionsSection({ project }: { project: Project }) {
   const removeCollection = useRemoveCollection(project.id);
   const [addOpen, setAddOpen] = useState(false);
-  const [configuring, setConfiguring] = useState<CollectionConfig | null>(null);
   const [removing, setRemoving] = useState<CollectionConfig | null>(null);
 
   async function handleRemove(): Promise<void> {
@@ -74,7 +72,7 @@ export function CollectionsSection({ project }: { project: Project }) {
                   <p className="text-sm font-medium">{collection.name}</p>
                   <p className="text-xs text-muted-foreground">
                     {collection.fields.length}{" "}
-                    {collection.fields.length === 1 ? "field" : "fields"} mapped
+                    {collection.fields.length === 1 ? "field" : "fields"}
                   </p>
                 </div>
                 <div className="flex items-center gap-1">
@@ -83,15 +81,6 @@ export function CollectionsSection({ project }: { project: Project }) {
                       <List className="h-4 w-4" />
                       <span className="sr-only">View items</span>
                     </Link>
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() => setConfiguring(collection)}
-                  >
-                    <Settings2 className="h-4 w-4" />
-                    <span className="sr-only">Configure fields</span>
                   </Button>
                   <Button
                     variant="ghost"
@@ -110,15 +99,6 @@ export function CollectionsSection({ project }: { project: Project }) {
       </CardContent>
 
       <AddCollectionsDialog project={project} open={addOpen} onOpenChange={setAddOpen} />
-
-      {configuring && (
-        <FieldMappingDialog
-          project={project}
-          collection={configuring}
-          open={configuring !== null}
-          onOpenChange={(open) => !open && setConfiguring(null)}
-        />
-      )}
 
       <AlertDialog open={removing !== null} onOpenChange={(open) => !open && setRemoving(null)}>
         <AlertDialogContent>

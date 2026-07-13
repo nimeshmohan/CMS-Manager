@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp, ArrowUpDown, MoreHorizontal, Pencil, Trash2, UploadCloud } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, MoreHorizontal, Pencil, Trash2, UploadCloud, Undo2 } from "lucide-react";
 import type { FieldMapping, Item } from "@cms-manager/shared";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -31,6 +31,7 @@ interface DynamicItemTableProps {
   permissions: ResolvedPermissions;
   onEdit: (item: Item) => void;
   onPublish: (item: Item) => void;
+  onUnpublish: (item: Item) => void;
   onDelete: (item: Item) => void;
 }
 
@@ -56,6 +57,7 @@ export function DynamicItemTable({
   permissions,
   onEdit,
   onPublish,
+  onUnpublish,
   onDelete,
 }: DynamicItemTableProps) {
   const columns = tableColumns(fields);
@@ -150,6 +152,12 @@ export function DynamicItemTable({
                         <DropdownMenuItem onClick={() => onPublish(item)}>
                           <UploadCloud />
                           Publish
+                        </DropdownMenuItem>
+                      )}
+                      {permissions.canPublish && item.published && (
+                        <DropdownMenuItem onClick={() => onUnpublish(item)}>
+                          <Undo2 />
+                          Unpublish (move to draft)
                         </DropdownMenuItem>
                       )}
                       {permissions.canDelete && (

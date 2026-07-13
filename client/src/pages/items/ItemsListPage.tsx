@@ -16,7 +16,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useProject } from "@/api/projects";
-import { useDeleteItem, useItems, usePublishItem } from "@/api/items";
+import { useDeleteItem, useItems, usePublishItem, useUnpublishItem } from "@/api/items";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { usePermissions } from "@/hooks/usePermissions";
 import { DynamicItemTable } from "@/components/items/DynamicItemTable";
@@ -52,6 +52,7 @@ export function ItemsListPage() {
 
   const deleteItem = useDeleteItem(projectId ?? "", collectionId ?? "");
   const publishItem = usePublishItem(projectId ?? "", collectionId ?? "");
+  const unpublishItem = useUnpublishItem(projectId ?? "", collectionId ?? "");
 
   function handleSort(key: string): void {
     if (key === sortBy) {
@@ -69,6 +70,15 @@ export function ItemsListPage() {
       toast.success("Item published.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not publish item.");
+    }
+  }
+
+  async function handleUnpublish(item: Item): Promise<void> {
+    try {
+      await unpublishItem.mutateAsync(item.id);
+      toast.success("Item moved back to draft.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not unpublish item.");
     }
   }
 
@@ -117,7 +127,7 @@ export function ItemsListPage() {
           <h1 className="text-2xl font-semibold tracking-tight">{collection.name}</h1>
           <p className="text-sm text-muted-foreground">
             {project.name} — {collection.fields.length} field
-            {collection.fields.length === 1 ? "" : "s"} mapped
+            {collection.fields.length === 1 ? "" : "s"}
           </p>
         </div>
         {permissions.canCreate && (
@@ -156,6 +166,7 @@ export function ItemsListPage() {
           navigate(`/projects/${projectId}/collections/${collectionId}/items/${item.id}/edit`)
         }
         onPublish={(item) => void handlePublish(item)}
+        onUnpublish={(item) => void handleUnpublish(item)}
         onDelete={setDeletingItem}
       />
 

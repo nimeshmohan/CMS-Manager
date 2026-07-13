@@ -11,6 +11,7 @@ export const ACTIVITY_ACTION_LABELS: Record<ActivityAction, string> = {
   UPDATE_ITEM: "Updated item",
   DELETE_ITEM: "Deleted item",
   PUBLISH_ITEM: "Published item",
+  UNPUBLISH_ITEM: "Unpublished item",
   INVITE_MEMBER: "Invited member",
   UPDATE_MEMBER_PERMISSIONS: "Updated member permissions",
   REVOKE_MEMBER: "Revoked member access",

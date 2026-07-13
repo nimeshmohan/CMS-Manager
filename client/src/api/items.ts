@@ -107,3 +107,16 @@ export function usePublishItem(projectId: string, collectionId: string) {
     },
   });
 }
+
+export function useUnpublishItem(projectId: string, collectionId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (itemId: string) =>
+      apiClient.post<{ item: Item }>(
+        `${itemsBasePath(projectId, collectionId)}/${itemId}/unpublish`,
+      ),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: itemsKey(projectId, collectionId) });
+    },
+  });
+}

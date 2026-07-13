@@ -191,3 +191,34 @@ itemsRouter.post(
     res.json({ item });
   }),
 );
+
+itemsRouter.post(
+  "/:itemId/unpublish",
+  requireCollectionPermission("canPublish"),
+  asyncHandler(async (req, res) => {
+    const previousData = await itemService.getItem(
+      req.project!,
+      req.collection!,
+      req.params.itemId!,
+    );
+    const item = await itemService.unpublishItem(
+      req.project!,
+      req.collection!,
+      req.params.itemId!,
+    );
+
+    await activityLogService.logActivity({
+      projectId: req.project!.id,
+      userId: req.user!.uid,
+      userEmail: req.user!.email,
+      action: "UNPUBLISH_ITEM",
+      collectionId: req.collection!.id,
+      itemId: item.id,
+      targetUserId: null,
+      previousData,
+      newData: item,
+    });
+
+    res.json({ item });
+  }),
+);

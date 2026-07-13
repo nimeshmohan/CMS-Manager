@@ -14,6 +14,7 @@ export type ActivityAction =
   | "UPDATE_ITEM"
   | "DELETE_ITEM"
   | "PUBLISH_ITEM"
+  | "UNPUBLISH_ITEM"
   | "INVITE_MEMBER"
   | "UPDATE_MEMBER_PERMISSIONS"
   | "REVOKE_MEMBER"

@@ -1,13 +1,12 @@
 import { randomBytes } from "node:crypto";
 import type { WriteBatch } from "firebase-admin/firestore";
 import {
+  autoMapFields,
   SEEDED_ROLE_IDS,
   type ApiCredentials,
   type CollectionConfig,
-  type FieldMapping,
   type Project,
   type ProviderCollection,
-  type ProviderField,
   type ProviderSite,
 } from "@cms-manager/shared";
 import { firestore } from "../config/firebaseAdmin";
@@ -357,8 +356,10 @@ export const projectService = {
   /**
    * Adds a collection to the project's managed set (Section 4.4 step 6) —
    * only the selected collections are ever persisted or referenced again.
-   * Its `fields` start empty; field mapping (step 8) is a follow-up call
-   * to `updateCollection`.
+   * Its `fields` are auto-mapped from the provider's live schema right
+   * here, immediately, the same way a real CMS dashboard works — there's
+   * no separate manual field-mapping step to complete before items can be
+   * created.
    */
   async addCollection(
     id: string,
@@ -377,13 +378,19 @@ export const projectService = {
       );
     }
 
+    const credentials = requireDecryptedCredentials(existing);
+    const schema = await resolveProvider(existing.cmsProvider).getCollectionSchema(
+      credentials,
+      providerCollectionId,
+    );
+
     const now = new Date().toISOString();
     const collection: CollectionConfig = {
       id: newCollectionId(),
       projectId: id,
       name,
       providerCollectionId,
-      fields: [],
+      fields: autoMapFields(schema),
       createdAt: now,
       updatedAt: now,
     };
@@ -394,45 +401,6 @@ export const projectService = {
       .doc(id)
       .update({ collections, updatedAt: now });
     return { project: { ...existing, collections, updatedAt: now }, collection };
-  },
-
-  /** The live field schema for one managed collection, for the field-mapping editor's auto-suggest (Section 4.4 step 8). */
-  async getCollectionFieldSchema(
-    id: string,
-    collectionId: string,
-  ): Promise<ProviderField[]> {
-    const project = await getProjectOrThrow(id);
-    const collection = project.collections.find((c) => c.id === collectionId);
-    if (!collection) {
-      throw new AppError("Collection not found.", 404);
-    }
-    const credentials = requireDecryptedCredentials(project);
-    return resolveProvider(project.cmsProvider).getCollectionSchema(
-      credentials,
-      collection.providerCollectionId,
-    );
-  },
-
-  async updateCollection(
-    id: string,
-    collectionId: string,
-    patch: { name?: string; fields?: FieldMapping[] },
-  ): Promise<Project> {
-    const existing = await getProjectOrThrow(id);
-    const index = existing.collections.findIndex((c) => c.id === collectionId);
-    if (index === -1) {
-      throw new AppError("Collection not found.", 404);
-    }
-
-    const now = new Date().toISOString();
-    const collections = [...existing.collections];
-    collections[index] = { ...collections[index]!, ...patch, updatedAt: now };
-
-    await firestore
-      .collection(PROJECTS_COLLECTION)
-      .doc(id)
-      .update({ collections, updatedAt: now });
-    return { ...existing, collections, updatedAt: now };
   },
 
   async removeCollection(id: string, collectionId: string): Promise<Project> {

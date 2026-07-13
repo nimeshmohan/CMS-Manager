@@ -79,4 +79,9 @@ export interface CmsProvider {
     collectionId: string,
     itemId: string,
   ): Promise<ProviderItem>;
+  unpublishItem(
+    credentials: ProviderCredentials,
+    collectionId: string,
+    itemId: string,
+  ): Promise<ProviderItem>;
 }

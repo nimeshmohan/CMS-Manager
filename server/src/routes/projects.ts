@@ -1,11 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import type { AppUser } from "@cms-manager/shared";
-import {
-  createProjectSchema,
-  fieldMappingSchema,
-  updateProjectSchema,
-} from "@cms-manager/shared";
+import { createProjectSchema, updateProjectSchema } from "@cms-manager/shared";
 import { verifyAuth } from "../middleware/auth";
 import { requireProjectPermission } from "../middleware/projectPermission";
 import { sensitiveActionRateLimiter } from "../middleware/security";
@@ -49,11 +45,6 @@ const paginationQuerySchema = z.object({
 const addCollectionSchema = z.object({
   providerCollectionId: z.string().trim().min(1, "providerCollectionId is required"),
   name: z.string().trim().min(1, "Collection name is required").max(120),
-});
-
-const updateCollectionSchema = z.object({
-  name: z.string().trim().min(1).max(120).optional(),
-  fields: z.array(fieldMappingSchema).optional(),
 });
 
 /**
@@ -384,51 +375,6 @@ projectsRouter.post(
     res
       .status(201)
       .json({ project: projectService.toSafeProject(project), collection });
-  }),
-);
-
-/** Live field schema for the field-mapping editor's auto-suggest (Section 4.4 step 8). */
-projectsRouter.get(
-  "/:id/collections/:collectionId/schema",
-  requireProjectPermission("manage"),
-  asyncHandler(async (req, res) => {
-    const fields = await projectService.getCollectionFieldSchema(
-      req.params.id!,
-      req.params.collectionId!,
-    );
-    res.json({ fields });
-  }),
-);
-
-projectsRouter.patch(
-  "/:id/collections/:collectionId",
-  requireProjectPermission("manage"),
-  asyncHandler(async (req, res) => {
-    const patch = updateCollectionSchema.parse(req.body);
-    const previousData =
-      req.project!.collections.find((c) => c.id === req.params.collectionId) ??
-      null;
-    const project = await projectService.updateCollection(
-      req.params.id!,
-      req.params.collectionId!,
-      patch,
-    );
-
-    await activityLogService.logActivity({
-      projectId: project.id,
-      userId: req.user!.uid,
-      userEmail: req.user!.email,
-      action: "UPDATE_PROJECT",
-      collectionId: req.params.collectionId!,
-      itemId: null,
-      targetUserId: null,
-      previousData,
-      newData:
-        project.collections.find((c) => c.id === req.params.collectionId) ??
-        null,
-    });
-
-    res.json({ project: projectService.toSafeProject(project) });
   }),
 );
 

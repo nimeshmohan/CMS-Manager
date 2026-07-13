@@ -23,16 +23,18 @@ for the full product/architecture spec.
 - [x] Phase 5 — CmsProvider abstraction, WebflowProvider, onboarding flow.
       `CmsProvider` interface, `WebflowProvider` (Webflow Data API v2),
       AES-256-GCM credential encryption, OAuth (state-CSRF-protected) +
-      API Token connection, site selection, collection selection, and a
-      field-mapping editor with name-similarity auto-suggest (Section
-      4.4–4.5). Operates as a series of steps on an already-created
-      project rather than a single blocking modal wizard — each step
-      (connect → pick site → add collections → map fields) saves
-      independently via its own route.
+      API Token connection, site selection, and collection selection.
+      Operates as a series of steps on an already-created project rather
+      than a single blocking modal wizard — each step (connect → pick
+      site → add collections) saves independently via its own route.
+      Field mapping is automatic (`autoMapFields`, name-similarity —
+      Section 4.4–4.5) the instant a collection is added, not a separate
+      manual step: adding a collection immediately makes it usable for
+      items, the same as a real CMS dashboard.
 - [x] Phase 6 — Dynamic item management UI. Dynamic Zod schema builder
       (`buildItemFormSchema`, shared client/server — Section 4.5),
-      `ItemService` (search/sort/pagination in-memory, CRUD, publish —
-      the first code to actually exercise `WebflowProvider`),
+      `ItemService` (search/sort/pagination in-memory, CRUD, publish and
+      unpublish — the first code to actually exercise `WebflowProvider`),
       `requireCollectionPermission` middleware, rich text sanitization,
       unique-slug generation (never regenerated on edit). Client:
       `DynamicItemTable`/`DynamicField` generated at runtime from a

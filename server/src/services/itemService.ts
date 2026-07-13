@@ -44,8 +44,11 @@ function mapProviderItemToItem(
   const fieldData: Record<string, unknown> = {};
   for (const field of collection.fields) {
     const raw = providerItem.fieldData[field.providerFieldSlug];
+    // `null`, never `undefined` — Firestore's Admin SDK rejects `undefined`
+    // values outright, and this `Item` gets written verbatim into an
+    // activity log entry (Section 10) right after it's built.
     fieldData[field.key] =
-      raw ?? (field.type === "boolean" ? false : field.type === "number" ? undefined : "");
+      raw ?? (field.type === "boolean" ? false : field.type === "number" ? null : "");
   }
   return {
     id: providerItem.id,
@@ -263,7 +266,6 @@ export const itemService = {
     await provider.deleteItem(credentials, collection.providerCollectionId, itemId);
   },
 
-  /** There's no single-item "unpublish" in Webflow — this only ever pushes an item live, never retroactively removes a published one (Section 6). */
   async publishItem(
     project: Project,
     collection: CollectionConfig,
@@ -276,6 +278,21 @@ export const itemService = {
       itemId,
     );
     return mapProviderItemToItem(published, collection);
+  },
+
+  /** Moves a published item back to draft — removes it from the live site while keeping it in the CMS (Section 6). */
+  async unpublishItem(
+    project: Project,
+    collection: CollectionConfig,
+    itemId: string,
+  ): Promise<Item> {
+    const { credentials, provider } = requireCredentialsAndProvider(project);
+    const unpublished = await provider.unpublishItem(
+      credentials,
+      collection.providerCollectionId,
+      itemId,
+    );
+    return mapProviderItemToItem(unpublished, collection);
   },
 
   /** Total/published/draft counts for one collection — the per-project dashboard's item cards (Section 11). */

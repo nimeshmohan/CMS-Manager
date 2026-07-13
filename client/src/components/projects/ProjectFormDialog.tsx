@@ -38,9 +38,9 @@ interface ProjectFormDialogProps {
 }
 
 /**
- * Basic-information fields only (Section 4.4 step 1) — connecting Webflow,
- * selecting collections, and field mapping are a separate flow that
- * operates on an already-created project, added once the CmsProvider
+ * Basic-information fields only (Section 4.4 step 1) — connecting Webflow
+ * and selecting collections are a separate flow that operates on an
+ * already-created project, added once the CmsProvider
  * abstraction exists.
  */
 export function ProjectFormDialog({
