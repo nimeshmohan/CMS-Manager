@@ -1,0 +1,193 @@
+import { Router } from "express";
+import { z } from "zod";
+import { buildItemFormSchema } from "@cms-manager/shared";
+import { verifyAuth } from "../middleware/auth";
+import { requireCollectionPermission } from "../middleware/collectionPermission";
+import { asyncHandler } from "../utils/asyncHandler";
+import { AppError } from "../utils/AppError";
+import { itemService } from "../services/itemService";
+import { activityLogService } from "../services/activityLogService";
+
+/** `mergeParams` so `req.params.id` (project) and `req.params.collectionId` from the mount path in app.ts reach the route handlers here. */
+export const itemsRouter = Router({ mergeParams: true });
+
+itemsRouter.use(verifyAuth);
+
+const listQuerySchema = z.object({
+  search: z.string().trim().optional(),
+  sortBy: z.string().trim().optional(),
+  sortOrder: z.enum(["asc", "desc"]).optional(),
+  page: z.coerce.number().int().min(1).optional(),
+  pageSize: z.coerce.number().int().min(1).max(100).optional(),
+});
+
+itemsRouter.get(
+  "/",
+  requireCollectionPermission("canView"),
+  asyncHandler(async (req, res) => {
+    const query = listQuerySchema.parse(req.query);
+    const result = await itemService.listItems(req.project!, req.collection!, query);
+    res.json(result);
+  }),
+);
+
+itemsRouter.get(
+  "/:itemId",
+  requireCollectionPermission("canView"),
+  asyncHandler(async (req, res) => {
+    const item = await itemService.getItem(
+      req.project!,
+      req.collection!,
+      req.params.itemId!,
+    );
+    res.json({ item });
+  }),
+);
+
+/** "Save Draft" only needs `canCreate`; "Publish" additionally needs `canPublish` — checked here against the resolved grant the middleware already attached, not a second lookup (Section 5). */
+itemsRouter.post(
+  "/",
+  requireCollectionPermission("canCreate"),
+  asyncHandler(async (req, res) => {
+    const schema = buildItemFormSchema(req.collection!.fields);
+    // The dynamic shape (built from a runtime FieldMapping[] loop) can't
+    // carry per-key literal types through z.infer — `published` is added
+    // via the same mechanism, so it needs the same explicit annotation.
+    const { published, ...fieldValues } = schema.parse(req.body) as Record<
+      string,
+      unknown
+    > & { published: boolean };
+
+    if (published && !req.collectionPermissions!.canPublish) {
+      throw new AppError(
+        "You do not have permission to publish items in this collection.",
+        403,
+      );
+    }
+
+    const item = await itemService.createItem(
+      req.project!,
+      req.collection!,
+      fieldValues,
+      published,
+    );
+
+    await activityLogService.logActivity({
+      projectId: req.project!.id,
+      userId: req.user!.uid,
+      userEmail: req.user!.email,
+      action: "CREATE_ITEM",
+      collectionId: req.collection!.id,
+      itemId: item.id,
+      targetUserId: null,
+      previousData: null,
+      newData: item,
+    });
+
+    res.status(201).json({ item });
+  }),
+);
+
+itemsRouter.patch(
+  "/:itemId",
+  requireCollectionPermission("canEdit"),
+  asyncHandler(async (req, res) => {
+    const schema = buildItemFormSchema(req.collection!.fields);
+    const { published, ...fieldValues } = schema.parse(req.body) as Record<
+      string,
+      unknown
+    > & { published: boolean };
+
+    if (published && !req.collectionPermissions!.canPublish) {
+      throw new AppError(
+        "You do not have permission to publish items in this collection.",
+        403,
+      );
+    }
+
+    const previousData = await itemService.getItem(
+      req.project!,
+      req.collection!,
+      req.params.itemId!,
+    );
+    const item = await itemService.updateItem(
+      req.project!,
+      req.collection!,
+      req.params.itemId!,
+      fieldValues,
+      published,
+    );
+
+    await activityLogService.logActivity({
+      projectId: req.project!.id,
+      userId: req.user!.uid,
+      userEmail: req.user!.email,
+      action: "UPDATE_ITEM",
+      collectionId: req.collection!.id,
+      itemId: item.id,
+      targetUserId: null,
+      previousData,
+      newData: item,
+    });
+
+    res.json({ item });
+  }),
+);
+
+itemsRouter.delete(
+  "/:itemId",
+  requireCollectionPermission("canDelete"),
+  asyncHandler(async (req, res) => {
+    const previousData = await itemService.getItem(
+      req.project!,
+      req.collection!,
+      req.params.itemId!,
+    );
+    await itemService.deleteItem(req.project!, req.collection!, req.params.itemId!);
+
+    await activityLogService.logActivity({
+      projectId: req.project!.id,
+      userId: req.user!.uid,
+      userEmail: req.user!.email,
+      action: "DELETE_ITEM",
+      collectionId: req.collection!.id,
+      itemId: req.params.itemId!,
+      targetUserId: null,
+      previousData,
+      newData: null,
+    });
+
+    res.status(204).end();
+  }),
+);
+
+itemsRouter.post(
+  "/:itemId/publish",
+  requireCollectionPermission("canPublish"),
+  asyncHandler(async (req, res) => {
+    const previousData = await itemService.getItem(
+      req.project!,
+      req.collection!,
+      req.params.itemId!,
+    );
+    const item = await itemService.publishItem(
+      req.project!,
+      req.collection!,
+      req.params.itemId!,
+    );
+
+    await activityLogService.logActivity({
+      projectId: req.project!.id,
+      userId: req.user!.uid,
+      userEmail: req.user!.email,
+      action: "PUBLISH_ITEM",
+      collectionId: req.collection!.id,
+      itemId: item.id,
+      targetUserId: null,
+      previousData,
+      newData: item,
+    });
+
+    res.json({ item });
+  }),
+);

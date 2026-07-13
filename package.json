@@ -1,0 +1,29 @@
+{
+  "name": "cms-manager",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Multi-project, multi-user, role-based CMS management platform (Webflow first)",
+  "workspaces": [
+    "shared",
+    "server",
+    "client"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "dev": "concurrently -n shared,server,client -c yellow,green,blue \"npm run dev -w shared\" \"npm run dev -w server\" \"npm run dev -w client\"",
+    "build": "npm run build -w shared && npm run build -w server && npm run build -w client",
+    "build:shared": "npm run build -w shared",
+    "build:server": "npm run build -w shared && npm run build -w server",
+    "build:client": "npm run build -w shared && npm run build -w client",
+    "start": "npm run start -w server",
+    "lint": "npm run lint -w server && npm run lint -w client",
+    "format": "prettier --write \"**/*.{ts,tsx,js,json,md}\" --ignore-path .gitignore",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,json,md}\" --ignore-path .gitignore"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "prettier": "^3.3.3"
+  }
+}
