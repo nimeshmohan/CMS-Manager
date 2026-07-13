@@ -9,6 +9,7 @@
  */
 import type { AppUser } from "@cms-manager/shared";
 import { firebaseAuth, firestore } from "../config/firebaseAdmin";
+import { activityLogService } from "../services/activityLogService";
 
 async function main(): Promise<void> {
   const [, , email, password, displayName] = process.argv;
@@ -45,6 +46,18 @@ async function main(): Promise<void> {
 
   const { uid, ...profile } = appUser;
   await firestore.collection("users").doc(uid).set(profile);
+
+  await activityLogService.logActivity({
+    projectId: null,
+    userId: uid,
+    userEmail: appUser.email,
+    action: "CREATE_USER",
+    collectionId: null,
+    itemId: null,
+    targetUserId: uid,
+    previousData: null,
+    newData: appUser,
+  });
 
   console.log(`Super Admin created: ${appUser.email} (uid: ${appUser.uid})`);
 }

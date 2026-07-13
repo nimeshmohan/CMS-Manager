@@ -81,9 +81,25 @@ for the full product/architecture spec.
       — not just assumed to work because they matched a known-good
       pattern.
 
-All 9 phases from the original plan are now built. The one explicitly
-flagged gap is Section 15's `/api/users` (Super Admin platform user
-management), which was never part of this 9-phase breakdown.
+- [x] Phase 10 — Platform Users management (Section 15's `/api/users`,
+      Super Admin only). `userService` (list, promote/demote Super Admin,
+      disable/enable, hard delete cascading Memberships, password reset
+      link generation — no email provider, so the link is returned
+      directly like invitations), self-protection guards (can't disable
+      or delete your own account; can't remove your own Super Admin
+      status if you're the last one), a new `UPDATE_USER_ROLE` activity
+      action added deliberately rather than misusing
+      `UPDATE_MEMBER_PERMISSIONS` for an unrelated domain, and
+      `CREATE_USER` logging wired into both places accounts actually get
+      created (the bootstrap script and invitation acceptance). Client:
+      `UsersPage`, gated by the same `RequireSuperAdmin` guard as the
+      Activity Log. No "create user" form — Section 8 forbids open
+      self-registration and `Invitation` has no concept of granting Super
+      Admin, so every account still only comes from the bootstrap script
+      or accepting a project invitation.
+
+All 9 phases from the original plan, plus this explicitly-flagged gap, are
+now built.
 
 ## Project structure
 

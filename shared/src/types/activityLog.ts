@@ -21,7 +21,9 @@ export type ActivityAction =
   | "DISABLE_USER"
   | "ENABLE_USER"
   | "DELETE_USER"
-  | "RESET_PASSWORD";
+  | "RESET_PASSWORD"
+  /** Promoting/demoting a user's platform-wide Super Admin status (Phase 10) — distinct from UPDATE_MEMBER_PERMISSIONS, which is project-collection-scoped. */
+  | "UPDATE_USER_ROLE";
 
 export interface ActivityLogEntry {
   id: string;

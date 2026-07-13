@@ -19,4 +19,5 @@ export const ACTIVITY_ACTION_LABELS: Record<ActivityAction, string> = {
   ENABLE_USER: "Enabled user",
   DELETE_USER: "Deleted user",
   RESET_PASSWORD: "Reset password",
+  UPDATE_USER_ROLE: "Updated Super Admin access",
 };

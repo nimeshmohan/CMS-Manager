@@ -40,12 +40,20 @@ export function Topbar() {
           Projects
         </Link>
         {profile?.isSuperAdmin && (
-          <Link
-            to="/activity-logs"
-            className="text-sm text-muted-foreground hover:text-foreground"
-          >
-            Activity Log
-          </Link>
+          <>
+            <Link
+              to="/users"
+              className="text-sm text-muted-foreground hover:text-foreground"
+            >
+              Users
+            </Link>
+            <Link
+              to="/activity-logs"
+              className="text-sm text-muted-foreground hover:text-foreground"
+            >
+              Activity Log
+            </Link>
+          </>
         )}
       </div>
 

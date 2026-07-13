@@ -13,6 +13,7 @@ import { ItemsListPage } from "@/pages/items/ItemsListPage";
 import { ItemFormPage } from "@/pages/items/ItemFormPage";
 import { InvitationAcceptPage } from "@/pages/invitations/InvitationAcceptPage";
 import { ActivityLogPage } from "@/pages/activity/ActivityLogPage";
+import { UsersPage } from "@/pages/users/UsersPage";
 
 export default function App() {
   return (
@@ -36,6 +37,7 @@ export default function App() {
 
             <Route element={<RequireSuperAdmin />}>
               <Route path="/activity-logs" element={<ActivityLogPage />} />
+              <Route path="/users" element={<UsersPage />} />
             </Route>
           </Route>
         </Route>

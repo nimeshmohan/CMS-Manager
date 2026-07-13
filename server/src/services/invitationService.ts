@@ -12,6 +12,7 @@ import { AppError } from "../utils/AppError";
 import { membershipService } from "./membershipService";
 import { projectService } from "./projectService";
 import { roleService } from "./roleService";
+import { activityLogService } from "./activityLogService";
 
 const INVITATIONS_COLLECTION = "invitations";
 const INVITATION_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -154,6 +155,17 @@ export const invitationService = {
         createdBy: invitation.invitedBy,
       };
       await userDocRef.set(newUser);
+      await activityLogService.logActivity({
+        projectId: null,
+        userId: firebaseUid,
+        userEmail: firebaseEmail,
+        action: "CREATE_USER",
+        collectionId: null,
+        itemId: null,
+        targetUserId: firebaseUid,
+        previousData: null,
+        newData: { ...newUser, uid: firebaseUid },
+      });
     } else if ((userDoc.data() as Omit<AppUser, "uid">).disabled) {
       throw new AppError(
         "This account has been disabled. Contact an administrator.",

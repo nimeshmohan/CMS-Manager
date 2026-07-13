@@ -17,6 +17,7 @@ import { invitationsRouter } from "./routes/invitations";
 import { rolesRouter } from "./routes/roles";
 import { dashboardRouter } from "./routes/dashboard";
 import { activityLogsRouter } from "./routes/activityLogs";
+import { usersRouter } from "./routes/users";
 
 export function createApp(): Express {
   const app = express();
@@ -45,8 +46,7 @@ export function createApp(): Express {
   app.use("/api/invitations", invitationsRouter);
   app.use("/api/dashboard", dashboardRouter);
   app.use("/api/activity-logs", activityLogsRouter);
-  // /api/users (platform user management) is mounted here once that
-  // phase lands — not built yet.
+  app.use("/api/users", usersRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);
