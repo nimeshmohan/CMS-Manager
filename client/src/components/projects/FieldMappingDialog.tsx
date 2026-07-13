@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Loader2, Plus, Star, Trash2 } from "lucide-react";
+import { Loader2, Star, Trash2 } from "lucide-react";
 import type { CollectionConfig, FieldMapping, FieldType, Project } from "@cms-manager/shared";
 import {
   Dialog,
@@ -33,6 +33,9 @@ const FIELD_TYPE_LABELS: Record<FieldType, string> = {
   boolean: "Boolean",
 };
 
+/** Webflow's built-in item fields — the backend sets these automatically from the title field and the generated slug (Section 4.6), so they're never offered as mappable/editable here. */
+const BUILT_IN_SLUGS = new Set(["name", "slug"]);
+
 interface FieldMappingDialogProps {
   project: Project;
   collection: CollectionConfig;
@@ -40,29 +43,12 @@ interface FieldMappingDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-interface DraftField {
-  providerFieldSlug: string;
-  label: string;
-  key: string;
-  type: FieldType;
-  required: boolean;
-  isTitleField: boolean;
-}
-
-const EMPTY_DRAFT: DraftField = {
-  providerFieldSlug: "",
-  label: "",
-  key: "",
-  type: "text",
-  required: false,
-  isTitleField: false,
-};
-
 /**
- * Section 4.4 step 8 — map each Webflow field to this tool's logical
- * fields. Selecting a provider field auto-suggests label/key/type by name
- * similarity (Section 4.4); everything stays editable before it's added.
- * Nothing is saved to the collection until "Save field mapping".
+ * Section 4.4 step 8 — every mappable Webflow field is auto-suggested the
+ * moment the schema loads (name-similarity label/key/type, per Section
+ * 4.4), not added one at a time. Everything here stays editable — remove a
+ * field, change its label/type/required/title flag — before "Save field
+ * mapping" actually persists it.
  */
 export function FieldMappingDialog({
   project,
@@ -78,53 +64,49 @@ export function FieldMappingDialog({
   const updateFields = useUpdateCollectionFields(project.id, collection.id);
 
   const [fields, setFields] = useState<FieldMapping[]>(collection.fields);
-  const [draft, setDraft] = useState<DraftField>(EMPTY_DRAFT);
 
   useEffect(() => {
-    if (open) {
-      setFields(collection.fields);
-      setDraft(EMPTY_DRAFT);
-    }
-  }, [open, collection.fields]);
-
-  const usedProviderSlugs = new Set(fields.map((f) => f.providerFieldSlug));
-  const availableProviderFields = (schema ?? []).filter(
-    (f) => !usedProviderSlugs.has(f.slug),
-  );
-
-  function handlePickProviderField(slug: string): void {
-    const providerField = (schema ?? []).find((f) => f.slug === slug);
-    if (!providerField) return;
-    setDraft({
-      providerFieldSlug: providerField.slug,
-      label: providerField.displayName,
-      key: suggestFieldKey(providerField),
-      type: suggestFieldType(providerField.type),
-      required: providerField.isRequired,
-      isTitleField: false,
-    });
-  }
-
-  function handleAddField(): void {
-    if (!draft.providerFieldSlug || !draft.key.trim() || !draft.label.trim()) return;
-
-    const newField: FieldMapping = {
-      key: draft.key.trim(),
-      label: draft.label.trim(),
-      providerFieldSlug: draft.providerFieldSlug,
-      type: draft.type,
-      required: draft.required,
-      isTitleField: draft.isTitleField,
-    };
+    if (!open || !schema) return;
 
     setFields((prev) => {
-      // At most one title field per collection (Section 4.5).
-      const cleared = draft.isTitleField
-        ? prev.map((f) => ({ ...f, isTitleField: false }))
-        : prev;
-      return [...cleared, newField];
+      const mappedSlugs = new Set(prev.map((f) => f.providerFieldSlug));
+      const newlyMappable = schema.filter(
+        (f) => !BUILT_IN_SLUGS.has(f.slug) && !mappedSlugs.has(f.slug),
+      );
+      if (newlyMappable.length === 0) return prev;
+
+      const alreadyHasTitleField = prev.some((f) => f.isTitleField);
+      const suggestions: FieldMapping[] = newlyMappable.map((field, index) => ({
+        key: suggestFieldKey(field),
+        label: field.displayName,
+        providerFieldSlug: field.slug,
+        type: suggestFieldType(field.type),
+        required: field.isRequired,
+        isTitleField:
+          !alreadyHasTitleField && index === 0 && suggestFieldType(field.type) === "text",
+      }));
+      return [...prev, ...suggestions];
     });
-    setDraft(EMPTY_DRAFT);
+    // Only re-run when the dialog (re)opens or the schema itself changes —
+    // not on every `fields` edit, which would fight the user's own changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, schema]);
+
+  useEffect(() => {
+    if (open) setFields(collection.fields);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, collection.id]);
+
+  function updateField(key: string, patch: Partial<FieldMapping>): void {
+    setFields((prev) =>
+      prev.map((f) => {
+        if (f.key !== key) {
+          // Enforce at most one title field (Section 4.5).
+          return patch.isTitleField ? { ...f, isTitleField: false } : f;
+        }
+        return { ...f, ...patch };
+      }),
+    );
   }
 
   function handleRemoveField(key: string): void {
@@ -149,7 +131,8 @@ export function FieldMappingDialog({
         <DialogHeader>
           <DialogTitle>Configure fields — {collection.name}</DialogTitle>
           <DialogDescription>
-            Map Webflow fields to how they'll appear in this tool.
+            Every Webflow field is mapped automatically — adjust label, type,
+            required, or which field drives the slug, then save.
           </DialogDescription>
         </DialogHeader>
 
@@ -166,105 +149,51 @@ export function FieldMappingDialog({
         )}
 
         {!isPending && !isError && (
-          <div className="space-y-4">
-            {fields.length > 0 && (
-              <div className="space-y-1">
-                {fields.map((field) => (
-                  <div
-                    key={field.key}
-                    className="flex items-center justify-between rounded-md border px-3 py-2"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium">{field.label}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {field.providerFieldSlug}
-                      </span>
-                      <Badge variant="secondary">{FIELD_TYPE_LABELS[field.type]}</Badge>
-                      {field.required && <Badge variant="outline">Required</Badge>}
-                      {field.isTitleField && (
-                        <Badge variant="default">
-                          <Star className="h-3 w-3" />
-                          Title
-                        </Badge>
-                      )}
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7"
-                      onClick={() => handleRemoveField(field.key)}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                      <span className="sr-only">Remove field</span>
-                    </Button>
-                  </div>
-                ))}
-              </div>
+          <div className="max-h-[60vh] space-y-3 overflow-y-auto">
+            {fields.length === 0 && (
+              <p className="text-sm text-muted-foreground">
+                No mappable fields found on this collection.
+              </p>
             )}
-
-            <div className="space-y-3 rounded-md border border-dashed p-3">
-              <Label className="text-xs uppercase text-muted-foreground">
-                Add a field
-              </Label>
-
-              <Select
-                value={draft.providerFieldSlug}
-                onValueChange={handlePickProviderField}
-                disabled={availableProviderFields.length === 0}
-              >
-                <SelectTrigger>
-                  <SelectValue
-                    placeholder={
-                      availableProviderFields.length === 0
-                        ? "All fields mapped"
-                        : "Choose a Webflow field"
-                    }
-                  />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableProviderFields.map((field) => (
-                    <SelectItem key={field.slug} value={field.slug}>
-                      {field.displayName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              {draft.providerFieldSlug && (
-                <>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-1">
-                      <Label htmlFor="fieldLabel" className="text-xs">
-                        Label
-                      </Label>
-                      <Input
-                        id="fieldLabel"
-                        value={draft.label}
-                        onChange={(e) =>
-                          setDraft((d) => ({ ...d, label: e.target.value }))
-                        }
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label htmlFor="fieldKey" className="text-xs">
-                        Key
-                      </Label>
-                      <Input
-                        id="fieldKey"
-                        value={draft.key}
-                        onChange={(e) =>
-                          setDraft((d) => ({ ...d, key: e.target.value }))
-                        }
-                      />
-                    </div>
+            {fields.map((field) => (
+              <div key={field.key} className="space-y-2 rounded-md border p-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">
+                      {field.providerFieldSlug}
+                    </span>
+                    {field.isTitleField && (
+                      <Badge variant="default">
+                        <Star className="h-3 w-3" />
+                        Title
+                      </Badge>
+                    )}
                   </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={() => handleRemoveField(field.key)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    <span className="sr-only">Remove field</span>
+                  </Button>
+                </div>
 
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Label</Label>
+                    <Input
+                      value={field.label}
+                      onChange={(e) => updateField(field.key, { label: e.target.value })}
+                    />
+                  </div>
                   <div className="space-y-1">
                     <Label className="text-xs">Type</Label>
                     <Select
-                      value={draft.type}
+                      value={field.type}
                       onValueChange={(value) =>
-                        setDraft((d) => ({ ...d, type: value as FieldType }))
+                        updateField(field.key, { type: value as FieldType })
                       }
                     >
                       <SelectTrigger>
@@ -279,41 +208,30 @@ export function FieldMappingDialog({
                       </SelectContent>
                     </Select>
                   </div>
+                </div>
 
-                  <div className="flex items-center gap-4">
-                    <label className="flex items-center gap-2 text-sm">
-                      <Checkbox
-                        checked={draft.required}
-                        onCheckedChange={(checked) =>
-                          setDraft((d) => ({ ...d, required: checked === true }))
-                        }
-                      />
-                      Required
-                    </label>
-                    <label className="flex items-center gap-2 text-sm">
-                      <Checkbox
-                        checked={draft.isTitleField}
-                        onCheckedChange={(checked) =>
-                          setDraft((d) => ({ ...d, isTitleField: checked === true }))
-                        }
-                      />
-                      Title field (drives the slug)
-                    </label>
-                  </div>
-
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    onClick={handleAddField}
-                    disabled={!draft.key.trim() || !draft.label.trim()}
-                  >
-                    <Plus />
-                    Add field
-                  </Button>
-                </>
-              )}
-            </div>
+                <div className="flex items-center gap-4">
+                  <label className="flex items-center gap-2 text-sm">
+                    <Checkbox
+                      checked={field.required}
+                      onCheckedChange={(checked) =>
+                        updateField(field.key, { required: checked === true })
+                      }
+                    />
+                    Required
+                  </label>
+                  <label className="flex items-center gap-2 text-sm">
+                    <Checkbox
+                      checked={field.isTitleField ?? false}
+                      onCheckedChange={(checked) =>
+                        updateField(field.key, { isTitleField: checked === true })
+                      }
+                    />
+                    Title field (drives the slug)
+                  </label>
+                </div>
+              </div>
+            ))}
           </div>
         )}
 

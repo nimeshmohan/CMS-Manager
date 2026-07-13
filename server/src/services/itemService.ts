@@ -58,13 +58,23 @@ function mapProviderItemToItem(
   };
 }
 
-/** Rich text is sanitized here — the single point every field value passes through before reaching a CMS provider, regardless of collection or project (Section 4.5/9). */
+/**
+ * Rich text is sanitized here — the single point every field value passes
+ * through before reaching a CMS provider, regardless of collection or
+ * project (Section 4.5/9).
+ *
+ * Webflow requires its built-in `name` field on every item, separate from
+ * `slug` and from whatever provider field the user's title `FieldMapping`
+ * happens to be mapped to — it's set here unconditionally so an item never
+ * fails to save just because `name` isn't one of the mapped fields.
+ */
 function mapInputToProviderFieldData(
   input: Record<string, unknown>,
   fields: FieldMapping[],
   slug: string,
+  name: string,
 ): Record<string, unknown> {
-  const fieldData: Record<string, unknown> = { slug };
+  const fieldData: Record<string, unknown> = { slug, name };
   for (const field of fields) {
     let value = input[field.key];
     if (field.type === "richText" && typeof value === "string") {
@@ -186,14 +196,15 @@ export const itemService = {
 
     const titleField = findTitleField(collection.fields);
     const titleValue = titleField ? input[titleField.key] : undefined;
+    const name = typeof titleValue === "string" && titleValue ? titleValue : collection.name;
     const slug = await generateUniqueSlug(
-      typeof titleValue === "string" && titleValue ? titleValue : collection.name,
+      name,
       credentials,
       provider,
       collection.providerCollectionId,
     );
 
-    const fieldData = mapInputToProviderFieldData(input, collection.fields, slug);
+    const fieldData = mapInputToProviderFieldData(input, collection.fields, slug, name);
     const created = await provider.createItem(
       credentials,
       collection.providerCollectionId,
@@ -218,19 +229,21 @@ export const itemService = {
       collection.providerCollectionId,
       itemId,
     );
+    const titleField = findTitleField(collection.fields);
+    const titleValue = titleField ? input[titleField.key] : undefined;
+    const name = typeof titleValue === "string" && titleValue ? titleValue : collection.name;
+
     let slug = existing.slug;
     if (!slug) {
-      const titleField = findTitleField(collection.fields);
-      const titleValue = titleField ? input[titleField.key] : undefined;
       slug = await generateUniqueSlug(
-        typeof titleValue === "string" && titleValue ? titleValue : collection.name,
+        name,
         credentials,
         provider,
         collection.providerCollectionId,
       );
     }
 
-    const fieldData = mapInputToProviderFieldData(input, collection.fields, slug);
+    const fieldData = mapInputToProviderFieldData(input, collection.fields, slug, name);
     const updated = await provider.updateItem(
       credentials,
       collection.providerCollectionId,
