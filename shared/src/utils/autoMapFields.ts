@@ -31,31 +31,22 @@ export function suggestFieldKey(
     .replace(/^_+|_+$/g, "");
 }
 
-/** Webflow's built-in item fields — the backend sets these automatically from the title field and the generated slug, so they're never offered as mappable/editable. */
+/** Webflow's built-in item fields — Name and Slug are their own dedicated inputs on every item form (Section 4.6), never offered as mappable/editable here. */
 const BUILT_IN_SLUGS = new Set(["name", "slug"]);
 
 /**
  * Every field on a provider's collection schema, mapped automatically by
  * name-similarity the moment a collection is added — there's no separate
- * manual "map fields" step. The first text field becomes the title field,
- * driving slug generation on create.
+ * manual "map fields" step.
  */
 export function autoMapFields(providerFields: ProviderField[]): FieldMapping[] {
   const mappable = providerFields.filter((field) => !BUILT_IN_SLUGS.has(field.slug));
-  let titleAssigned = false;
 
-  return mappable.map((field) => {
-    const type = suggestFieldType(field.type);
-    const isTitleField = !titleAssigned && type === "text";
-    if (isTitleField) titleAssigned = true;
-
-    return {
-      key: suggestFieldKey(field),
-      label: field.displayName,
-      providerFieldSlug: field.slug,
-      type,
-      required: field.isRequired,
-      isTitleField,
-    };
-  });
+  return mappable.map((field) => ({
+    key: suggestFieldKey(field),
+    label: field.displayName,
+    providerFieldSlug: field.slug,
+    type: suggestFieldType(field.type),
+    required: field.isRequired,
+  }));
 }

@@ -7,6 +7,8 @@
 export interface Item {
   id: string;
   collectionId: string;
+  /** Webflow's built-in item name — every item has one, distinct from any mapped field (Section 4.6). */
+  name: string;
   slug: string | null;
   /** Keyed by `FieldMapping.key`, not the provider's field slug. */
   fieldData: Record<string, unknown>;

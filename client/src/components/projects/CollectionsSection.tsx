@@ -43,7 +43,7 @@ export function CollectionsSection({ project }: { project: Project }) {
   }
 
   return (
-    <Card className="max-w-2xl">
+    <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0">
         <div>
           <CardTitle className="text-base">Collections</CardTitle>

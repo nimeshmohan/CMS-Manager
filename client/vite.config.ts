@@ -19,6 +19,14 @@ export default defineConfig({
     // syntax at all. Forcing it through esbuild's optimizer here converts
     // it to real ESM, same as any other dependency.
     include: ["@cms-manager/shared"],
+    // That optimized bundle is otherwise cached across `npm run dev`
+    // restarts keyed off the lockfile, not `shared`'s on-disk dist —
+    // editing shared/src and rebuilding it (`npm run build -w shared`)
+    // silently keeps serving the stale pre-bundled version, exports and
+    // all, until someone thinks to delete node_modules/.vite by hand.
+    // Forcing a fresh optimize on every dev server start costs a couple
+    // seconds and removes that entire failure mode.
+    force: true,
   },
   build: {
     commonjsOptions: {

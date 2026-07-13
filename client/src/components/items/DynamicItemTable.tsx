@@ -61,13 +61,22 @@ export function DynamicItemTable({
   onDelete,
 }: DynamicItemTableProps) {
   const columns = tableColumns(fields);
-  const columnCount = columns.length + 3; // + Published + Updated + Actions
+  const columnCount = columns.length + 4; // + Name + Published + Updated + Actions
 
   return (
     <div className="rounded-lg border">
       <Table>
         <TableHeader>
           <TableRow>
+            <TableHead>
+              <SortableHeader
+                label="Name"
+                sortKey="name"
+                activeSortBy={sortBy}
+                sortOrder={sortOrder}
+                onSort={onSort}
+              />
+            </TableHead>
             {columns.map((field) => (
               <TableHead key={field.key}>
                 <SortableHeader
@@ -120,8 +129,9 @@ export function DynamicItemTable({
           ) : items.length > 0 ? (
             items.map((item) => (
               <TableRow key={item.id}>
+                <TableCell className="font-medium">{item.name || "—"}</TableCell>
                 {columns.map((field) => (
-                  <TableCell key={field.key} className={field.isTitleField ? "font-medium" : undefined}>
+                  <TableCell key={field.key}>
                     {formatCellValue(field, item.fieldData[field.key])}
                   </TableCell>
                 ))}

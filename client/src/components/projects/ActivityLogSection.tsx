@@ -21,7 +21,7 @@ export function ActivityLogSection({ projectId }: { projectId: string }) {
   );
 
   return (
-    <Card className="max-w-2xl">
+    <Card>
       <CardHeader>
         <CardTitle className="text-base">Activity</CardTitle>
         <CardDescription>Recent changes to this project.</CardDescription>

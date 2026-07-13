@@ -72,7 +72,16 @@ export function buildItemSchema(fields: FieldMapping[]) {
   return z.object(shape);
 }
 
-/** `buildItemSchema` plus the `published` flag every item create/edit form and API payload carries alongside its field values. */
+/**
+ * `buildItemSchema` plus the built-in `name`/`slug` fields every Webflow
+ * item has (Section 4.6) and the `published` flag every item create/edit
+ * form and API payload carries alongside its field values. `slug` is
+ * optional — left blank, the server slugifies `name` instead.
+ */
 export function buildItemFormSchema(fields: FieldMapping[]) {
-  return buildItemSchema(fields).extend({ published: z.boolean() });
+  return buildItemSchema(fields).extend({
+    name: z.string().trim().min(1, "Name is required"),
+    slug: z.string().trim().max(256).optional(),
+    published: z.boolean(),
+  });
 }

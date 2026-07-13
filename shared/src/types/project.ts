@@ -26,8 +26,6 @@ export interface FieldMapping {
   maxLength?: number;
   min?: number;
   max?: number;
-  /** Drives auto-slug generation on create (Section 4.6). At most one field per collection should set this. */
-  isTitleField?: boolean;
 }
 
 /** Validates a collection's field mapping when it's saved (Section 4.5) — the same schema client and server both import, so they can never drift. */
@@ -41,7 +39,6 @@ export const fieldMappingSchema = z.object({
   maxLength: z.number().int().nonnegative().optional(),
   min: z.number().optional(),
   max: z.number().optional(),
-  isTitleField: z.boolean().optional(),
 });
 
 export interface CollectionConfig {

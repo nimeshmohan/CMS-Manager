@@ -1,12 +1,15 @@
 import { useEffect, useMemo } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { buildItemFormSchema, slugify } from "@cms-manager/shared";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { FormError } from "@/components/ui/form-error";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useProject } from "@/api/projects";
 import { useCreateItem, useItem, useUnpublishItem, useUpdateItem } from "@/api/items";
@@ -45,8 +48,6 @@ export function ItemFormPage() {
   const updateItem = useUpdateItem(projectId ?? "", collectionId ?? "", itemId ?? "");
   const unpublishItem = useUnpublishItem(projectId ?? "", collectionId ?? "");
 
-  const titleField = collection?.fields.find((f) => f.isTitleField);
-
   const schema = useMemo(
     () => buildItemFormSchema(collection?.fields ?? []),
     [collection],
@@ -61,6 +62,8 @@ export function ItemFormPage() {
   } = useForm<Record<string, unknown>>({
     resolver: zodResolver(schema),
     defaultValues: {
+      name: "",
+      slug: "",
       ...Object.fromEntries(
         (collection?.fields ?? []).map((f) => [f.key, defaultValueFor(f.type)]),
       ),
@@ -71,6 +74,8 @@ export function ItemFormPage() {
   useEffect(() => {
     if (itemQuery.data && collection) {
       reset({
+        name: itemQuery.data.name,
+        slug: itemQuery.data.slug ?? "",
         ...Object.fromEntries(
           collection.fields.map((f) => [f.key, itemQuery.data.fieldData[f.key] ?? defaultValueFor(f.type)]),
         ),
@@ -80,12 +85,12 @@ export function ItemFormPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [itemQuery.data, collection]);
 
-  const titleValue = titleField ? watch(titleField.key) : undefined;
+  const watchedName = watch("name");
+  const watchedSlug = watch("slug");
+  const slugFromName = typeof watchedName === "string" ? slugify(watchedName) : "";
   const previewSlug = isEditMode
-    ? itemQuery.data?.slug
-    : typeof titleValue === "string"
-      ? slugify(titleValue)
-      : "";
+    ? (itemQuery.data?.slug ?? "")
+    : (typeof watchedSlug === "string" && watchedSlug.trim()) || slugFromName;
 
   async function onSave(published: boolean, values: Record<string, unknown>): Promise<void> {
     const payload = { ...values, published };
@@ -176,19 +181,53 @@ export function ItemFormPage() {
         </CardHeader>
         <CardContent>
           <form className="space-y-5" onSubmit={(e) => e.preventDefault()} noValidate>
+            <div className="space-y-2">
+              <Label htmlFor="name">Name *</Label>
+              <Controller
+                control={control}
+                name="name"
+                render={({ field: rhfField }) => (
+                  <Input
+                    id="name"
+                    value={typeof rhfField.value === "string" ? rhfField.value : ""}
+                    onChange={rhfField.onChange}
+                  />
+                )}
+              />
+              <FormError message={errors.name?.message as string | undefined} />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="slug">Slug</Label>
+              <Controller
+                control={control}
+                name="slug"
+                render={({ field: rhfField }) => (
+                  <Input
+                    id="slug"
+                    value={typeof rhfField.value === "string" ? rhfField.value : ""}
+                    onChange={rhfField.onChange}
+                    disabled={isEditMode}
+                    placeholder={isEditMode ? undefined : slugFromName || undefined}
+                  />
+                )}
+              />
+              <p className="text-xs text-muted-foreground">
+                {isEditMode
+                  ? `URL slug: ${previewSlug || "—"} (unchanged when editing)`
+                  : previewSlug
+                    ? `Leave blank to use "${previewSlug}".`
+                    : "Leave blank to generate a slug from the name."}
+              </p>
+              <FormError message={errors.slug?.message as string | undefined} />
+            </div>
+
             {collection.fields.map((field) => (
               <DynamicField
                 key={field.key}
                 field={field}
                 control={control}
                 error={errors[field.key]?.message as string | undefined}
-                helperText={
-                  field.isTitleField
-                    ? previewSlug
-                      ? `URL slug: ${previewSlug}${isEditMode ? " (unchanged when editing)" : ""}`
-                      : undefined
-                    : undefined
-                }
               />
             ))}
 

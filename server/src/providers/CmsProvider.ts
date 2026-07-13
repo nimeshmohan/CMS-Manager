@@ -16,6 +16,7 @@ export type ProviderCredentials = ApiCredentials;
  */
 export interface ProviderItem {
   id: string;
+  name: string;
   slug: string;
   isDraft: boolean;
   fieldData: Record<string, unknown>;

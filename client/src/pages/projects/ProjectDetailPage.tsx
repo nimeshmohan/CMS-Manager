@@ -179,8 +179,6 @@ export function ProjectDetailPage() {
 
       <ProjectStatsCards summary={dashboardSummary} isLoading={isDashboardSummaryPending} />
 
-      {canManage && <MembersSection project={project} />}
-
       {!project.connectionMethod && canManage && (
         <ConnectWebflowSection projectId={project.id} />
       )}
@@ -199,14 +197,18 @@ export function ProjectDetailPage() {
       )}
 
       {project.connectionMethod && project.siteId && (
-        <>
-          <p className="max-w-2xl text-sm text-muted-foreground">
-            {/* Masked per Section 9 — never the token itself, not even encrypted. */}
-            Connected via {project.connectionMethod === "oauth" ? "OAuth" : "API Token"}.
-          </p>
-          <CollectionsSection project={project} />
-        </>
+        <p className="text-sm text-muted-foreground">
+          {/* Masked per Section 9 — never the token itself, not even encrypted. */}
+          Connected via {project.connectionMethod === "oauth" ? "OAuth" : "API Token"}.
+        </p>
       )}
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        {canManage && <MembersSection project={project} />}
+        {project.connectionMethod && project.siteId && (
+          <CollectionsSection project={project} />
+        )}
+      </div>
 
       {canManage && <ActivityLogSection projectId={project.id} />}
 

@@ -76,6 +76,7 @@ interface WebflowItem {
 function toProviderItem(item: WebflowItem): ProviderItem {
   return {
     id: item.id,
+    name: typeof item.fieldData.name === "string" ? item.fieldData.name : "",
     slug: typeof item.fieldData.slug === "string" ? item.fieldData.slug : "",
     isDraft: item.isDraft,
     fieldData: item.fieldData,

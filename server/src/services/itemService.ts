@@ -19,7 +19,7 @@ export type SortOrder = "asc" | "desc";
 
 export interface ListItemsParams {
   search?: string;
-  /** A `FieldMapping.key`, or the system columns `lastUpdated` | `createdOn` | `published`. */
+  /** A `FieldMapping.key`, or the system columns `name` | `lastUpdated` | `createdOn` | `published`. */
   sortBy?: string;
   sortOrder?: SortOrder;
   page?: number;
@@ -31,10 +31,6 @@ export interface ListItemsResult {
   total: number;
   page: number;
   pageSize: number;
-}
-
-function findTitleField(fields: FieldMapping[]): FieldMapping | undefined {
-  return fields.find((f) => f.isTitleField);
 }
 
 function mapProviderItemToItem(
@@ -53,6 +49,7 @@ function mapProviderItemToItem(
   return {
     id: providerItem.id,
     collectionId: collection.id,
+    name: providerItem.name,
     slug: providerItem.slug || null,
     fieldData,
     published: !providerItem.isDraft,
@@ -64,12 +61,9 @@ function mapProviderItemToItem(
 /**
  * Rich text is sanitized here — the single point every field value passes
  * through before reaching a CMS provider, regardless of collection or
- * project (Section 4.5/9).
- *
- * Webflow requires its built-in `name` field on every item, separate from
- * `slug` and from whatever provider field the user's title `FieldMapping`
- * happens to be mapped to — it's set here unconditionally so an item never
- * fails to save just because `name` isn't one of the mapped fields.
+ * project (Section 4.5/9). `name` and `slug` are Webflow's built-in item
+ * fields, always set explicitly here rather than derived from any mapped
+ * field (Section 4.6).
  */
 function mapInputToProviderFieldData(
   input: Record<string, unknown>,
@@ -91,6 +85,7 @@ function mapInputToProviderFieldData(
 function getSortValue(item: Item, sortBy: string): string | number | boolean {
   if (sortBy === "lastUpdated" || sortBy === "createdOn") return item[sortBy];
   if (sortBy === "published") return item.published;
+  if (sortBy === "name") return item.name;
   const value = item.fieldData[sortBy];
   if (typeof value === "number" || typeof value === "boolean") return value;
   return typeof value === "string" ? value : "";
@@ -153,11 +148,13 @@ export const itemService = {
       const textFieldKeys = collection.fields
         .filter((f) => f.type === "text")
         .map((f) => f.key);
-      items = items.filter((item) =>
-        textFieldKeys.some((key) => {
-          const value = item.fieldData[key];
-          return typeof value === "string" && value.toLowerCase().includes(needle);
-        }),
+      items = items.filter(
+        (item) =>
+          item.name.toLowerCase().includes(needle) ||
+          textFieldKeys.some((key) => {
+            const value = item.fieldData[key];
+            return typeof value === "string" && value.toLowerCase().includes(needle);
+          }),
       );
     }
 
@@ -189,6 +186,7 @@ export const itemService = {
     return mapProviderItemToItem(raw, collection);
   },
 
+  /** `input.name` is required; `input.slug` is optional — left blank, the slug is generated from `name` instead (Section 4.6). */
   async createItem(
     project: Project,
     collection: CollectionConfig,
@@ -197,11 +195,10 @@ export const itemService = {
   ): Promise<Item> {
     const { credentials, provider } = requireCredentialsAndProvider(project);
 
-    const titleField = findTitleField(collection.fields);
-    const titleValue = titleField ? input[titleField.key] : undefined;
-    const name = typeof titleValue === "string" && titleValue ? titleValue : collection.name;
+    const name = typeof input.name === "string" ? input.name : "";
+    const slugInput = typeof input.slug === "string" ? input.slug.trim() : "";
     const slug = await generateUniqueSlug(
-      name,
+      slugInput || name,
       credentials,
       provider,
       collection.providerCollectionId,
@@ -217,7 +214,7 @@ export const itemService = {
     return mapProviderItemToItem(created, collection);
   },
 
-  /** The slug is intentionally never regenerated on edit, even if the title field changes — this avoids silently breaking a published URL (Section 4.6). */
+  /** The slug is intentionally never regenerated on edit, even if `name` changes — this avoids silently breaking a published URL (Section 4.6). `name` itself stays freely editable. */
   async updateItem(
     project: Project,
     collection: CollectionConfig,
@@ -232,14 +229,13 @@ export const itemService = {
       collection.providerCollectionId,
       itemId,
     );
-    const titleField = findTitleField(collection.fields);
-    const titleValue = titleField ? input[titleField.key] : undefined;
-    const name = typeof titleValue === "string" && titleValue ? titleValue : collection.name;
+    const name = typeof input.name === "string" ? input.name : "";
 
     let slug = existing.slug;
     if (!slug) {
+      const slugInput = typeof input.slug === "string" ? input.slug.trim() : "";
       slug = await generateUniqueSlug(
-        name,
+        slugInput || name,
         credentials,
         provider,
         collection.providerCollectionId,
