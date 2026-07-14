@@ -1,7 +1,13 @@
 import type { FieldMapping, FieldType } from "../types/project";
 import type { ProviderField } from "../types/provider";
 
-/** Best-effort mapping from Webflow's field type strings to this tool's four field types. */
+/**
+ * Maps Webflow's actual field type strings (verified against the live Data
+ * API v2 response, not guessed) to this tool's field types. Anything not
+ * listed here — Option, Reference/MultiReference, MultiImage, File — falls
+ * back to "text": their raw value still round-trips correctly, just
+ * without a purpose-built widget.
+ */
 const WEBFLOW_TYPE_SUGGESTIONS: Record<string, FieldType> = {
   PlainText: "text",
   Email: "text",
@@ -13,6 +19,8 @@ const WEBFLOW_TYPE_SUGGESTIONS: Record<string, FieldType> = {
   RichText: "richText",
   Number: "number",
   Switch: "boolean",
+  Image: "image",
+  DateTime: "date",
 };
 
 export function suggestFieldType(providerFieldType: string): FieldType {

@@ -53,6 +53,24 @@ function buildFieldSchema(field: FieldMapping): z.ZodTypeAny {
 
     case "boolean":
       return z.boolean().default(false);
+
+    // The image's URL — Webflow accepts a plain URL string on write and
+    // hosts it itself; reading it back is normalized from Webflow's
+    // `{ url, alt }` object shape by `mapProviderItemToItem` (Section 6).
+    case "image": {
+      const schema = z.string().trim();
+      return field.required
+        ? schema.min(1, `${field.label} is required`)
+        : schema.optional().default("");
+    }
+
+    // An ISO date string (`YYYY-MM-DD`, matching an `<input type="date">`).
+    case "date": {
+      const schema = z.string().trim();
+      return field.required
+        ? schema.min(1, `${field.label} is required`)
+        : schema.optional().default("");
+    }
   }
 }
 

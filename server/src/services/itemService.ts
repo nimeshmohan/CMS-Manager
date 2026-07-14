@@ -33,6 +33,15 @@ export interface ListItemsResult {
   pageSize: number;
 }
 
+/** Webflow's Image fields come back as `{ url, alt }`, never a bare string — this is the one place that shape is unwrapped for display (Section 6). */
+function extractImageUrl(raw: unknown): string {
+  if (typeof raw === "string") return raw;
+  if (raw && typeof raw === "object" && typeof (raw as { url?: unknown }).url === "string") {
+    return (raw as { url: string }).url;
+  }
+  return "";
+}
+
 function mapProviderItemToItem(
   providerItem: ProviderItem,
   collection: CollectionConfig,
@@ -40,6 +49,10 @@ function mapProviderItemToItem(
   const fieldData: Record<string, unknown> = {};
   for (const field of collection.fields) {
     const raw = providerItem.fieldData[field.providerFieldSlug];
+    if (field.type === "image") {
+      fieldData[field.key] = extractImageUrl(raw);
+      continue;
+    }
     // `null`, never `undefined` — Firestore's Admin SDK rejects `undefined`
     // values outright, and this `Item` gets written verbatim into an
     // activity log entry (Section 10) right after it's built.
@@ -64,6 +77,14 @@ function mapProviderItemToItem(
  * project (Section 4.5/9). `name` and `slug` are Webflow's built-in item
  * fields, always set explicitly here rather than derived from any mapped
  * field (Section 4.6).
+ *
+ * `image` fields are never written here: Webflow's Items API silently
+ * accepts and discards a bare URL (or a `{ url }` object) for an image
+ * field — writing one back would look successful yet leave the field
+ * `null`, destroying whatever image already exists there. Uploading an
+ * image requires Webflow's separate Assets API, which this tool doesn't
+ * implement yet (Section 6) — image fields are read-only here until it
+ * does, so they're simply omitted from every create/update payload.
  */
 function mapInputToProviderFieldData(
   input: Record<string, unknown>,
@@ -73,6 +94,7 @@ function mapInputToProviderFieldData(
 ): Record<string, unknown> {
   const fieldData: Record<string, unknown> = { slug, name };
   for (const field of fields) {
+    if (field.type === "image") continue;
     let value = input[field.key];
     if (field.type === "richText" && typeof value === "string") {
       value = sanitizeRichText(value);

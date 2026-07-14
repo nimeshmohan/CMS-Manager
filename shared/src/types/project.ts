@@ -7,7 +7,7 @@ export type ConnectionMethod = "oauth" | "apiToken";
 
 export type ProjectStatus = "active" | "archived";
 
-export const fieldTypeSchema = z.enum(["text", "number", "richText", "boolean"]);
+export const fieldTypeSchema = z.enum(["text", "number", "richText", "boolean", "image", "date"]);
 export type FieldType = z.infer<typeof fieldTypeSchema>;
 
 /**

@@ -95,6 +95,58 @@ export function DynamicField({ field, control, error, helperText }: DynamicField
         />
       )}
 
+      {field.type === "date" && (
+        <Controller
+          control={control}
+          name={field.key}
+          render={({ field: rhfField }) => {
+            const iso = typeof rhfField.value === "string" ? rhfField.value : "";
+            return (
+              <Input
+                id={field.key}
+                type="date"
+                value={iso ? iso.slice(0, 10) : ""}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  rhfField.onChange(value ? new Date(`${value}T00:00:00.000Z`).toISOString() : "");
+                }}
+              />
+            );
+          }}
+        />
+      )}
+
+      {/* Read-only: Webflow's Items API silently discards a bare URL for an image field instead of setting it, so this tool can't safely write one back yet — shown here, edited in Webflow (Section 6). */}
+      {field.type === "image" && (
+        <Controller
+          control={control}
+          name={field.key}
+          render={({ field: rhfField }) => {
+            const url = typeof rhfField.value === "string" ? rhfField.value : "";
+            return (
+              <div className="flex items-center gap-3 rounded-md border p-2">
+                {url ? (
+                  <img src={url} alt="" className="h-12 w-12 rounded object-cover" />
+                ) : (
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded bg-muted text-[10px] text-muted-foreground">
+                    No image
+                  </div>
+                )}
+                <p className="truncate text-xs text-muted-foreground">
+                  {url || "No image set."}
+                </p>
+              </div>
+            );
+          }}
+        />
+      )}
+
+      {field.type === "image" && (
+        <p className="text-xs text-muted-foreground">
+          Managed in Webflow directly — image uploads aren't supported here yet.
+        </p>
+      )}
+
       {helperText && (
         <p className="text-xs text-muted-foreground">{helperText}</p>
       )}

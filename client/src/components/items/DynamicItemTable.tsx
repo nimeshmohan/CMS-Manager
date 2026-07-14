@@ -43,7 +43,18 @@ function tableColumns(fields: FieldMapping[]): FieldMapping[] {
 function formatCellValue(field: FieldMapping, value: unknown): string {
   if (field.type === "boolean") return value ? "Yes" : "No";
   if (value === undefined || value === null || value === "") return "—";
+  if (field.type === "date" && typeof value === "string") {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? String(value) : parsed.toLocaleDateString();
+  }
   return String(value);
+}
+
+function ImageCell({ url }: { url: unknown }) {
+  if (typeof url !== "string" || !url) {
+    return <span className="text-muted-foreground">—</span>;
+  }
+  return <img src={url} alt="" className="h-8 w-8 rounded object-cover" />;
 }
 
 export function DynamicItemTable({
@@ -132,7 +143,11 @@ export function DynamicItemTable({
                 <TableCell className="font-medium">{item.name || "—"}</TableCell>
                 {columns.map((field) => (
                   <TableCell key={field.key}>
-                    {formatCellValue(field, item.fieldData[field.key])}
+                    {field.type === "image" ? (
+                      <ImageCell url={item.fieldData[field.key]} />
+                    ) : (
+                      formatCellValue(field, item.fieldData[field.key])
+                    )}
                   </TableCell>
                 ))}
                 <TableCell>

@@ -347,10 +347,12 @@ export const projectService = {
       throw new AppError("Select a site before choosing collections.", 400);
     }
     const credentials = requireDecryptedCredentials(project);
-    return resolveProvider(project.cmsProvider).listCollections(
+    const collections = await resolveProvider(project.cmsProvider).listCollections(
       credentials,
       project.siteId,
     );
+    const managedIds = new Set(project.collections.map((c) => c.providerCollectionId));
+    return collections.filter((c) => !managedIds.has(c.id));
   },
 
   /**
