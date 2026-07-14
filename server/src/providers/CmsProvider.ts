@@ -98,4 +98,10 @@ export interface CmsProvider {
     siteId: string,
     file: ProviderFile,
   ): Promise<{ url: string }>;
+  /** Deploys the site itself — "staging" reaches only the free `*.webflow.io` domain, "live" reaches every custom domain too (Section 6). Distinct from an item's own publish state. */
+  publishSite(
+    credentials: ProviderCredentials,
+    siteId: string,
+    target: "staging" | "live",
+  ): Promise<void>;
 }

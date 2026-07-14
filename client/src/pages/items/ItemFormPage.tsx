@@ -4,7 +4,7 @@ import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { ArrowLeft, Loader2 } from "lucide-react";
-import { buildItemFormSchema, slugify } from "@cms-manager/shared";
+import { buildItemFormSchema, slugify, type PublishTarget } from "@cms-manager/shared";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -25,6 +25,11 @@ function defaultValueFor(type: string): unknown {
     default:
       return "";
   }
+}
+
+/** richText and the image upload widget need the full row; everything else is compact enough to pair up (Section 6). */
+function isWideField(type: string): boolean {
+  return type === "richText" || type === "image";
 }
 
 export function ItemFormPage() {
@@ -67,7 +72,7 @@ export function ItemFormPage() {
       ...Object.fromEntries(
         (collection?.fields ?? []).map((f) => [f.key, defaultValueFor(f.type)]),
       ),
-      published: false,
+      publishTarget: "draft",
     },
   });
 
@@ -79,7 +84,7 @@ export function ItemFormPage() {
         ...Object.fromEntries(
           collection.fields.map((f) => [f.key, itemQuery.data.fieldData[f.key] ?? defaultValueFor(f.type)]),
         ),
-        published: itemQuery.data.published,
+        publishTarget: "draft",
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -92,23 +97,30 @@ export function ItemFormPage() {
     ? (itemQuery.data?.slug ?? "")
     : (typeof watchedSlug === "string" && watchedSlug.trim()) || slugFromName;
 
-  async function onSave(published: boolean, values: Record<string, unknown>): Promise<void> {
-    const payload = { ...values, published };
+  async function onSave(target: PublishTarget, values: Record<string, unknown>): Promise<void> {
+    const payload = { ...values, publishTarget: target };
     try {
       if (isEditMode) {
         await updateItem.mutateAsync(payload);
       } else {
         await createItem.mutateAsync(payload);
       }
-      toast.success(published ? "Item published." : "Item saved as draft.");
+      toast.success(
+        target === "draft"
+          ? "Item saved as draft."
+          : target === "staging"
+            ? "Item saved to staging."
+            : "Item published.",
+      );
       navigate(`/projects/${projectId}/collections/${collectionId}`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not save item.");
     }
   }
 
-  const handleSaveDraft = handleSubmit((values) => onSave(false, values));
-  const handlePublish = handleSubmit((values) => onSave(true, values));
+  const handleSaveDraft = handleSubmit((values) => onSave("draft", values));
+  const handleSaveStaging = handleSubmit((values) => onSave("staging", values));
+  const handlePublish = handleSubmit((values) => onSave("live", values));
 
   async function handleUnpublish(): Promise<void> {
     if (!itemId) return;
@@ -175,65 +187,71 @@ export function ItemFormPage() {
         )}
       </div>
 
-      <Card className="max-w-2xl">
+      <Card className="max-w-4xl">
         <CardHeader>
           <CardTitle className="text-base">Details</CardTitle>
         </CardHeader>
         <CardContent>
-          <form className="space-y-5" onSubmit={(e) => e.preventDefault()} noValidate>
-            <div className="space-y-2">
-              <Label htmlFor="name">Name *</Label>
-              <Controller
-                control={control}
-                name="name"
-                render={({ field: rhfField }) => (
-                  <Input
-                    id="name"
-                    value={typeof rhfField.value === "string" ? rhfField.value : ""}
-                    onChange={rhfField.onChange}
+          <form onSubmit={(e) => e.preventDefault()} noValidate>
+            <div className="grid gap-x-6 gap-y-5 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="name">Name *</Label>
+                <Controller
+                  control={control}
+                  name="name"
+                  render={({ field: rhfField }) => (
+                    <Input
+                      id="name"
+                      value={typeof rhfField.value === "string" ? rhfField.value : ""}
+                      onChange={rhfField.onChange}
+                    />
+                  )}
+                />
+                <FormError message={errors.name?.message as string | undefined} />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="slug">Slug</Label>
+                <Controller
+                  control={control}
+                  name="slug"
+                  render={({ field: rhfField }) => (
+                    <Input
+                      id="slug"
+                      value={typeof rhfField.value === "string" ? rhfField.value : ""}
+                      onChange={rhfField.onChange}
+                      disabled={isEditMode}
+                      placeholder={isEditMode ? undefined : slugFromName || undefined}
+                    />
+                  )}
+                />
+                <p className="text-xs text-muted-foreground">
+                  {isEditMode
+                    ? `URL slug: ${previewSlug || "—"} (unchanged when editing)`
+                    : previewSlug
+                      ? `Leave blank to use "${previewSlug}".`
+                      : "Leave blank to generate a slug from the name."}
+                </p>
+                <FormError message={errors.slug?.message as string | undefined} />
+              </div>
+
+              {collection.fields.map((field) => (
+                <div
+                  key={field.key}
+                  className={isWideField(field.type) ? "sm:col-span-2" : undefined}
+                >
+                  <DynamicField
+                    field={field}
+                    control={control}
+                    error={errors[field.key]?.message as string | undefined}
+                    projectId={projectId}
+                    collectionId={collectionId}
                   />
-                )}
-              />
-              <FormError message={errors.name?.message as string | undefined} />
+                </div>
+              ))}
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="slug">Slug</Label>
-              <Controller
-                control={control}
-                name="slug"
-                render={({ field: rhfField }) => (
-                  <Input
-                    id="slug"
-                    value={typeof rhfField.value === "string" ? rhfField.value : ""}
-                    onChange={rhfField.onChange}
-                    disabled={isEditMode}
-                    placeholder={isEditMode ? undefined : slugFromName || undefined}
-                  />
-                )}
-              />
-              <p className="text-xs text-muted-foreground">
-                {isEditMode
-                  ? `URL slug: ${previewSlug || "—"} (unchanged when editing)`
-                  : previewSlug
-                    ? `Leave blank to use "${previewSlug}".`
-                    : "Leave blank to generate a slug from the name."}
-              </p>
-              <FormError message={errors.slug?.message as string | undefined} />
-            </div>
-
-            {collection.fields.map((field) => (
-              <DynamicField
-                key={field.key}
-                field={field}
-                control={control}
-                error={errors[field.key]?.message as string | undefined}
-                projectId={projectId}
-                collectionId={collectionId}
-              />
-            ))}
-
-            <div className="flex flex-wrap items-center justify-end gap-2 border-t pt-5">
+            <div className="mt-5 flex flex-wrap items-center justify-end gap-2 border-t pt-5">
               <Button
                 type="button"
                 variant="ghost"
@@ -261,6 +279,17 @@ export function ItemFormPage() {
                 {isSaving && <Loader2 className="animate-spin" />}
                 Save Draft
               </Button>
+              {permissions.canPublish && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={isSaving}
+                  onClick={() => void handleSaveStaging()}
+                >
+                  {isSaving && <Loader2 className="animate-spin" />}
+                  Save to Staging
+                </Button>
+              )}
               {permissions.canPublish && (
                 <Button type="button" disabled={isSaving} onClick={() => void handlePublish()}>
                   {isSaving && <Loader2 className="animate-spin" />}

@@ -4,6 +4,7 @@ import {
   type FieldMapping,
   type Item,
   type Project,
+  type PublishTarget,
 } from "@cms-manager/shared";
 import { AppError } from "../utils/AppError";
 import { sanitizeRichText } from "../utils/sanitizeRichText";
@@ -156,6 +157,20 @@ function requireCredentialsAndProvider(project: Project) {
   return { credentials, provider: resolveProvider(project.cmsProvider) };
 }
 
+/** A "staging"/"live" target additionally deploys the site itself, on top of the item's own publish state (Section 6) — a no-op for "draft". */
+async function publishSiteIfNeeded(
+  project: Project,
+  credentials: ProviderCredentials,
+  provider: CmsProvider,
+  target: PublishTarget,
+): Promise<void> {
+  if (target === "draft") return;
+  if (!project.siteId) {
+    throw new AppError("This project isn't connected to a site.", 400);
+  }
+  await provider.publishSite(credentials, project.siteId, target);
+}
+
 export const itemService = {
   async listItems(
     project: Project,
@@ -215,12 +230,18 @@ export const itemService = {
     return mapProviderItemToItem(raw, collection);
   },
 
-  /** `input.name` is required; `input.slug` is optional — left blank, the slug is generated from `name` instead (Section 4.6). */
+  /**
+   * `input.name` is required; `input.slug` is optional — left blank, the
+   * slug is generated from `name` instead (Section 4.6). `target`
+   * "staging"/"live" both mark the item itself published; "live"
+   * additionally deploys the site to every custom domain, "staging" only
+   * to the free `*.webflow.io` preview domain.
+   */
   async createItem(
     project: Project,
     collection: CollectionConfig,
     input: Record<string, unknown>,
-    publish: boolean,
+    target: PublishTarget,
   ): Promise<Item> {
     const { credentials, provider } = requireCredentialsAndProvider(project);
 
@@ -238,8 +259,9 @@ export const itemService = {
       credentials,
       collection.providerCollectionId,
       fieldData,
-      publish,
+      target !== "draft",
     );
+    await publishSiteIfNeeded(project, credentials, provider, target);
     return mapProviderItemToItem(created, collection);
   },
 
@@ -249,7 +271,7 @@ export const itemService = {
     collection: CollectionConfig,
     itemId: string,
     input: Record<string, unknown>,
-    publish: boolean,
+    target: PublishTarget,
   ): Promise<Item> {
     const { credentials, provider } = requireCredentialsAndProvider(project);
 
@@ -277,8 +299,9 @@ export const itemService = {
       collection.providerCollectionId,
       itemId,
       fieldData,
-      publish,
+      target !== "draft",
     );
+    await publishSiteIfNeeded(project, credentials, provider, target);
     return mapProviderItemToItem(updated, collection);
   },
 

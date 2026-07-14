@@ -31,7 +31,7 @@ export {
   type UpdateProjectInput,
 } from "./types/project";
 
-export type { Item } from "./types/item";
+export { PUBLISH_TARGETS, type PublishTarget, type Item } from "./types/item";
 
 export { stripHtml, slugify } from "./utils";
 

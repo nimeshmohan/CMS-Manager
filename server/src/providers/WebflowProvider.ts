@@ -308,6 +308,35 @@ async function uploadAsset(
   return { url: meta.hostedUrl };
 }
 
+interface WebflowSiteDetail {
+  customDomains: { id: string }[];
+}
+
+/**
+ * A CMS item being marked "published" (`isDraft: false` + `/items/publish`)
+ * only updates Webflow's own live data — it does not, by itself, make the
+ * change visible on any actual URL. That needs a separate *site* publish,
+ * confirmed against the live API: `publishToWebflowSubdomain: true` alone
+ * deploys only to the free `*.webflow.io` preview domain ("staging" here);
+ * reaching the real custom domain(s) requires listing their ids too, which
+ * means fetching the site's current `customDomains` first (Section 6).
+ */
+async function publishSite(
+  credentials: ProviderCredentials,
+  siteId: string,
+  target: "staging" | "live",
+): Promise<void> {
+  let customDomains: string[] = [];
+  if (target === "live") {
+    const site = await webflowFetch<WebflowSiteDetail>(credentials, `/sites/${siteId}`);
+    customDomains = site.customDomains.map((domain) => domain.id);
+  }
+  await webflowFetch<unknown>(credentials, `/sites/${siteId}/publish`, {
+    method: "POST",
+    body: JSON.stringify({ publishToWebflowSubdomain: true, customDomains }),
+  });
+}
+
 async function testConnection(
   credentials: ProviderCredentials,
 ): Promise<boolean> {
@@ -332,4 +361,5 @@ export const webflowProvider: CmsProvider = {
   publishItem,
   unpublishItem,
   uploadAsset,
+  publishSite,
 };

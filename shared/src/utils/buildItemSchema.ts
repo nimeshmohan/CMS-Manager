@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { FieldMapping } from "../types/project";
+import { PUBLISH_TARGETS } from "../types/item";
 import { stripHtml } from "../utils";
 
 function buildFieldSchema(field: FieldMapping): z.ZodTypeAny {
@@ -92,14 +93,16 @@ export function buildItemSchema(fields: FieldMapping[]) {
 
 /**
  * `buildItemSchema` plus the built-in `name`/`slug` fields every Webflow
- * item has (Section 4.6) and the `published` flag every item create/edit
- * form and API payload carries alongside its field values. `slug` is
- * optional — left blank, the server slugifies `name` instead.
+ * item has (Section 4.6) and the `publishTarget` every item create/edit
+ * form and API payload carries alongside its field values — "draft",
+ * "staging" (live item, site deployed to the `*.webflow.io` domain only),
+ * or "live" (site deployed everywhere). `slug` is optional — left blank,
+ * the server slugifies `name` instead.
  */
 export function buildItemFormSchema(fields: FieldMapping[]) {
   return buildItemSchema(fields).extend({
     name: z.string().trim().min(1, "Name is required"),
     slug: z.string().trim().max(256).optional(),
-    published: z.boolean(),
+    publishTarget: z.enum(PUBLISH_TARGETS),
   });
 }

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import multer from "multer";
 import { z } from "zod";
-import { buildItemFormSchema } from "@cms-manager/shared";
+import { buildItemFormSchema, type PublishTarget } from "@cms-manager/shared";
 import { verifyAuth } from "../middleware/auth";
 import { requireCollectionPermission } from "../middleware/collectionPermission";
 import { asyncHandler } from "../utils/asyncHandler";
@@ -76,21 +76,22 @@ itemsRouter.get(
   }),
 );
 
-/** "Save Draft" only needs `canCreate`; "Publish" additionally needs `canPublish` — checked here against the resolved grant the middleware already attached, not a second lookup (Section 5). */
+/** "Save Draft" only needs `canCreate`; "Save to Staging"/"Publish" additionally need `canPublish` — checked here against the resolved grant the middleware already attached, not a second lookup (Section 5). */
 itemsRouter.post(
   "/",
   requireCollectionPermission("canCreate"),
   asyncHandler(async (req, res) => {
     const schema = buildItemFormSchema(req.collection!.fields);
     // The dynamic shape (built from a runtime FieldMapping[] loop) can't
-    // carry per-key literal types through z.infer — `published` is added
-    // via the same mechanism, so it needs the same explicit annotation.
-    const { published, ...fieldValues } = schema.parse(req.body) as Record<
+    // carry per-key literal types through z.infer — `publishTarget` is
+    // added via the same mechanism, so it needs the same explicit
+    // annotation.
+    const { publishTarget, ...fieldValues } = schema.parse(req.body) as Record<
       string,
       unknown
-    > & { published: boolean };
+    > & { publishTarget: PublishTarget };
 
-    if (published && !req.collectionPermissions!.canPublish) {
+    if (publishTarget !== "draft" && !req.collectionPermissions!.canPublish) {
       throw new AppError(
         "You do not have permission to publish items in this collection.",
         403,
@@ -101,7 +102,7 @@ itemsRouter.post(
       req.project!,
       req.collection!,
       fieldValues,
-      published,
+      publishTarget,
     );
 
     await activityLogService.logActivity({
@@ -125,12 +126,12 @@ itemsRouter.patch(
   requireCollectionPermission("canEdit"),
   asyncHandler(async (req, res) => {
     const schema = buildItemFormSchema(req.collection!.fields);
-    const { published, ...fieldValues } = schema.parse(req.body) as Record<
+    const { publishTarget, ...fieldValues } = schema.parse(req.body) as Record<
       string,
       unknown
-    > & { published: boolean };
+    > & { publishTarget: PublishTarget };
 
-    if (published && !req.collectionPermissions!.canPublish) {
+    if (publishTarget !== "draft" && !req.collectionPermissions!.canPublish) {
       throw new AppError(
         "You do not have permission to publish items in this collection.",
         403,
@@ -147,7 +148,7 @@ itemsRouter.patch(
       req.collection!,
       req.params.itemId!,
       fieldValues,
-      published,
+      publishTarget,
     );
 
     await activityLogService.logActivity({
