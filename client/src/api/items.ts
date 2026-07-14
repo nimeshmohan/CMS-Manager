@@ -108,6 +108,20 @@ export function usePublishItem(projectId: string, collectionId: string) {
   });
 }
 
+/** Uploads an image file and returns its hosted URL — the value an image `FieldMapping` is set to on save (Section 6). Not a mutation on the item itself, so it doesn't invalidate the items query. */
+export function useUploadImage(projectId: string, collectionId: string) {
+  return useMutation({
+    mutationFn: (file: File) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      return apiClient.upload<{ url: string }>(
+        `${itemsBasePath(projectId, collectionId)}/assets`,
+        formData,
+      );
+    },
+  });
+}
+
 export function useUnpublishItem(projectId: string, collectionId: string) {
   const queryClient = useQueryClient();
   return useMutation({

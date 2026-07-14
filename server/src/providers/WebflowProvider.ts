@@ -1,8 +1,10 @@
+import { createHash } from "node:crypto";
 import { AppError } from "../utils/AppError";
 import type {
   CmsProvider,
   ListParams,
   ProviderCredentials,
+  ProviderFile,
   ProviderItem,
 } from "./CmsProvider";
 import type {
@@ -259,6 +261,53 @@ async function deleteItem(
   );
 }
 
+interface WebflowAssetMetadata {
+  id: string;
+  hostedUrl: string;
+  uploadUrl: string;
+  uploadDetails: Record<string, string>;
+}
+
+/**
+ * Webflow's Items API has no way to attach a new image directly — an
+ * image field only accepts a `{ url }` pointing at an asset Webflow
+ * already knows about (Section 6). Getting there is a two-step dance:
+ * register the file's metadata (returns a presigned S3 POST), then
+ * upload the actual bytes straight to S3 with that presigned form —
+ * Webflow's own API is never in the request path for step two, which is
+ * why it needs a plain `fetch`, not `webflowFetch` (no auth header, and
+ * the body is multipart form data, not JSON).
+ */
+async function uploadAsset(
+  credentials: ProviderCredentials,
+  siteId: string,
+  file: ProviderFile,
+): Promise<{ url: string }> {
+  const fileHash = createHash("md5").update(file.buffer).digest("hex");
+
+  const meta = await webflowFetch<WebflowAssetMetadata>(
+    credentials,
+    `/sites/${siteId}/assets`,
+    {
+      method: "POST",
+      body: JSON.stringify({ fileName: file.filename, fileHash }),
+    },
+  );
+
+  const form = new FormData();
+  for (const [key, value] of Object.entries(meta.uploadDetails)) {
+    form.append(key, value);
+  }
+  form.append("file", new Blob([file.buffer], { type: file.mimetype }), file.filename);
+
+  const uploadResponse = await fetch(meta.uploadUrl, { method: "POST", body: form });
+  if (!uploadResponse.ok) {
+    throw new AppError("Could not upload the file to Webflow's asset storage.", 502);
+  }
+
+  return { url: meta.hostedUrl };
+}
+
 async function testConnection(
   credentials: ProviderCredentials,
 ): Promise<boolean> {
@@ -282,4 +331,5 @@ export const webflowProvider: CmsProvider = {
   deleteItem,
   publishItem,
   unpublishItem,
+  uploadAsset,
 };

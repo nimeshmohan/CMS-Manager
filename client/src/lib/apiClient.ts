@@ -74,6 +74,29 @@ async function request<T>(
   return data as T;
 }
 
+/** Multipart upload — no JSON `Content-Type`, the browser sets the multipart boundary itself once `FormData` is the body. */
+async function upload<T>(path: string, formData: FormData): Promise<T> {
+  const authHeader = await getAuthHeader();
+  const response = await fetch(`${env.apiBaseUrl}${path}`, {
+    method: "POST",
+    headers: { ...authHeader },
+    body: formData,
+  });
+
+  const text = await response.text();
+  const data: unknown = text ? JSON.parse(text) : undefined;
+
+  if (!response.ok) {
+    const message =
+      isRecord(data) && typeof data.message === "string"
+        ? data.message
+        : "Upload failed.";
+    throw new ApiError(message, response.status, data);
+  }
+
+  return data as T;
+}
+
 /** Typed fetch wrapper that automatically attaches the current Firebase ID token. */
 export const apiClient = {
   get: <T>(path: string, query?: RequestOptions["query"]) =>
@@ -85,4 +108,5 @@ export const apiClient = {
   patch: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: "PATCH", body }),
   del: <T>(path: string) => request<T>(path, { method: "DELETE" }),
+  upload: <T>(path: string, formData: FormData) => upload<T>(path, formData),
 };

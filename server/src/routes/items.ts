@@ -1,4 +1,5 @@
 import { Router } from "express";
+import multer from "multer";
 import { z } from "zod";
 import { buildItemFormSchema } from "@cms-manager/shared";
 import { verifyAuth } from "../middleware/auth";
@@ -13,6 +14,19 @@ export const itemsRouter = Router({ mergeParams: true });
 
 itemsRouter.use(verifyAuth);
 
+/** In-memory only — files are streamed straight through to Webflow's asset storage, never written to disk here (Section 6). */
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (!file.mimetype.startsWith("image/")) {
+      cb(new AppError("Only image files can be uploaded.", 400));
+      return;
+    }
+    cb(null, true);
+  },
+});
+
 const listQuerySchema = z.object({
   search: z.string().trim().optional(),
   sortBy: z.string().trim().optional(),
@@ -20,6 +34,24 @@ const listQuerySchema = z.object({
   page: z.coerce.number().int().min(1).optional(),
   pageSize: z.coerce.number().int().min(1).max(100).optional(),
 });
+
+/** Needed by both the create and edit forms — gated on either grant, not just `canCreate` (Section 6). */
+itemsRouter.post(
+  "/assets",
+  requireCollectionPermission(["canCreate", "canEdit"]),
+  upload.single("file"),
+  asyncHandler(async (req, res) => {
+    if (!req.file) {
+      throw new AppError("No file uploaded.", 400);
+    }
+    const { url } = await itemService.uploadAsset(req.project!, {
+      buffer: req.file.buffer,
+      filename: req.file.originalname,
+      mimetype: req.file.mimetype,
+    });
+    res.json({ url });
+  }),
+);
 
 itemsRouter.get(
   "/",

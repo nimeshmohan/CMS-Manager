@@ -7,7 +7,13 @@ import {
 } from "@cms-manager/shared";
 import { AppError } from "../utils/AppError";
 import { sanitizeRichText } from "../utils/sanitizeRichText";
-import { resolveProvider, type CmsProvider, type ProviderCredentials, type ProviderItem } from "../providers";
+import {
+  resolveProvider,
+  type CmsProvider,
+  type ProviderCredentials,
+  type ProviderFile,
+  type ProviderItem,
+} from "../providers";
 import { projectService } from "./projectService";
 
 // Webflow's list endpoint only supports exact-match filters, not free-text
@@ -78,13 +84,10 @@ function mapProviderItemToItem(
  * fields, always set explicitly here rather than derived from any mapped
  * field (Section 4.6).
  *
- * `image` fields are never written here: Webflow's Items API silently
- * accepts and discards a bare URL (or a `{ url }` object) for an image
- * field — writing one back would look successful yet leave the field
- * `null`, destroying whatever image already exists there. Uploading an
- * image requires Webflow's separate Assets API, which this tool doesn't
- * implement yet (Section 6) — image fields are read-only here until it
- * does, so they're simply omitted from every create/update payload.
+ * `image` fields are written as `{ url }`, never a bare string — verified
+ * against the live API: Webflow only accepts a URL it already hosts (i.e.
+ * one that came back from `uploadAsset`, or the value already sitting on
+ * the item from a previous read), and `null` to clear one (Section 6).
  */
 function mapInputToProviderFieldData(
   input: Record<string, unknown>,
@@ -94,7 +97,11 @@ function mapInputToProviderFieldData(
 ): Record<string, unknown> {
   const fieldData: Record<string, unknown> = { slug, name };
   for (const field of fields) {
-    if (field.type === "image") continue;
+    if (field.type === "image") {
+      const url = typeof input[field.key] === "string" ? (input[field.key] as string).trim() : "";
+      fieldData[field.providerFieldSlug] = url ? { url } : null;
+      continue;
+    }
     let value = input[field.key];
     if (field.type === "richText" && typeof value === "string") {
       value = sanitizeRichText(value);
@@ -311,6 +318,15 @@ export const itemService = {
       itemId,
     );
     return mapProviderItemToItem(unpublished, collection);
+  },
+
+  /** Uploads a file as a Webflow site asset and returns its hosted URL — the only value an image field can be set to (Section 6). */
+  async uploadAsset(project: Project, file: ProviderFile): Promise<{ url: string }> {
+    if (!project.siteId) {
+      throw new AppError("This project isn't connected to a site.", 400);
+    }
+    const { credentials, provider } = requireCredentialsAndProvider(project);
+    return provider.uploadAsset(credentials, project.siteId, file);
   },
 
   /** Total/published/draft counts for one collection — the per-project dashboard's item cards (Section 11). */

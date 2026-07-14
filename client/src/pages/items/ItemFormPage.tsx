@@ -228,6 +228,8 @@ export function ItemFormPage() {
                 field={field}
                 control={control}
                 error={errors[field.key]?.message as string | undefined}
+                projectId={projectId}
+                collectionId={collectionId}
               />
             ))}
 

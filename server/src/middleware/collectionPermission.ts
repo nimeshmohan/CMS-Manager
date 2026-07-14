@@ -21,11 +21,13 @@ const FULL_ACCESS: Record<CollectionPermissionKey, boolean> = {
  * the request. Every case that isn't authorized — project missing,
  * collection missing, no Membership, or a Membership without this
  * specific grant — returns the identical 404, never leaking which one it
- * was (Section 9).
+ * was (Section 9). An array of actions authorizes on any one of them
+ * (e.g. asset upload, needed by both the create and edit forms).
  */
 export function requireCollectionPermission(
-  action: CollectionPermissionKey,
+  action: CollectionPermissionKey | CollectionPermissionKey[],
 ): RequestHandler {
+  const actions = Array.isArray(action) ? action : [action];
   return asyncHandler(async (req, _res, next) => {
     if (!req.user) {
       throw new AppError("Authentication required.", 401);
@@ -66,7 +68,7 @@ export function requireCollectionPermission(
     const permission = membership.collectionPermissions.find(
       (p) => p.collectionId === collectionId,
     );
-    if (!permission || !permission[action]) {
+    if (!permission || !actions.some((a) => permission[a])) {
       throw new AppError("Collection not found.", 404);
     }
 

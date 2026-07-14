@@ -19,4 +19,10 @@ export function resolveProvider(providerId: CmsProviderId): CmsProvider {
   }
 }
 
-export type { CmsProvider, ProviderCredentials, ProviderItem, ListParams } from "./CmsProvider";
+export type {
+  CmsProvider,
+  ProviderCredentials,
+  ProviderItem,
+  ProviderFile,
+  ListParams,
+} from "./CmsProvider";

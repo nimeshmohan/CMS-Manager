@@ -29,6 +29,13 @@ export interface ListParams {
   offset?: number;
 }
 
+/** A file held in memory (multer's default storage — Section 6), not yet uploaded to any provider. */
+export interface ProviderFile {
+  buffer: Buffer;
+  filename: string;
+  mimetype: string;
+}
+
 /**
  * Every provider-specific adapter (Webflow today; WordPress, Contentful,
  * Sanity, Shopify plausible later — Section 6) implements this exact
@@ -85,4 +92,10 @@ export interface CmsProvider {
     collectionId: string,
     itemId: string,
   ): Promise<ProviderItem>;
+  /** Registers and uploads a file as a site asset, returning the hosted URL an image field can reference (Section 6). */
+  uploadAsset(
+    credentials: ProviderCredentials,
+    siteId: string,
+    file: ProviderFile,
+  ): Promise<{ url: string }>;
 }
